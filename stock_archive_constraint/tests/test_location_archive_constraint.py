@@ -24,8 +24,9 @@ class TestLocationArchiveConstraint(SavepointCase):
     def _create_product(self, name):
         product_form = Form(self.env["product.product"])
         product_form.name = name
-        product_form.type = "product"
-        return product_form.save()
+        product = product_form.save()
+        product.type = "product"
+        return product
 
     def _create_stock_location(self, name):
         stock_location_form = Form(self.env["stock.location"])
