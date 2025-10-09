@@ -1,1 +1,0 @@
-from . import test_picking_type_user_restriction
