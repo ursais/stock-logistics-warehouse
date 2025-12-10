@@ -19,16 +19,20 @@
                 <!-- Quality Data Section -->
                 <group string="Datos de Calidad" invisible="not is_macrolot">
                     <group>
-                        <field name="humedad" />
-                        <field name="grano_danado" />
-                        <field name="peso_especifico" />
+                        <field name="peso_especifico" string="P.E. (g/l)"/>
+                        <field name="humedad" string="Humedad %"/>
+                        <field name="temperatura" string="Temp °C"/>
+                        <field name="grano_danado" string="Dañado %"/>
                     </group>
                     <group>
-                        <field name="pct_finos" />
-                        <field name="pct_quebrados" />
+                        <field name="pct_finos" string="Finos %"/>
+                        <field name="pct_quebrados" string="Quebrados %"/>
+                        <field name="suma_impurezas" string="Suma Impurezas (F+Q) %" readonly="1"/>
+                        <field name="analista"/>
                     </group>
                     <group colspan="2">
-                        <field name="quality_notes" placeholder="Observaciones del check de calidad..." />
+                        <field name="proveedor_id"/>
+                        <field name="quality_notes" placeholder="Observaciones del check de calidad..."/>
                     </group>
                 </group>
 
@@ -85,11 +89,14 @@
                 <field name="initial_mix_date" string="Fecha MI" optional="hide" />
                 <field name="final_mix" string="Mezcla Fin" optional="hide" />
                 <field name="final_mix_date" string="Fecha MF" optional="hide" />
+                <field name="peso_especifico" string="P.E. g/l" optional="show" />
                 <field name="humedad" string="Humedad %" optional="show" />
-                <field name="grano_danado" string="Dañado %" optional="hide" />
-                <field name="peso_especifico" string="Peso Esp" optional="hide" />
+                <field name="temperatura" string="Temp °C" optional="hide" />
                 <field name="pct_finos" string="% Finos" optional="hide" />
-                <field name="pct_quebrados" string="% Quebrados" optional="hide" />
+                <field name="pct_quebrados" string="% Quebr" optional="hide" />
+                <field name="suma_impurezas" string="Impurezas %" optional="show" />
+                <field name="grano_danado" string="Dañado %" optional="hide" />
+                <field name="analista" optional="hide" />
             </xpath>
         </field>
     </record>

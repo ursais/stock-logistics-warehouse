@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Report Action -->
+    <record id="action_report_silo_movement" model="ir.actions.report">
+        <field name="name">Reporte de Movimientos de Silo</field>
+        <field name="model">silo.movement.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">stock_location_history.report_silo_movement</field>
+        <field name="report_file">stock_location_history.report_silo_movement</field>
+        <field name="print_report_name">'Movimientos_Silo_%s_%s' % (object.date_from, object.date_to)</field>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Report Template -->
+    <template id="report_silo_movement">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <!-- Header -->
+                    <div class="text-center" style="margin-bottom: 20px;">
+                        <h2>Reporte de Movimientos de Silo</h2>
+                        <h4 t-esc="company.name"/>
+                        <p style="color: #666;">
+                            Período: <t t-esc="date_from"/> - <t t-esc="date_to"/>
+                        </p>
+                    </div>
+
+                    <!-- Check if there's data -->
+                    <t t-if="not movements">
+                        <div style="background-color: #fff3cd; padding: 15px; text-align: center; border: 1px solid #ffc107; border-radius: 4px;">
+                            <strong>No se encontraron movimientos</strong>
+                            <p style="margin: 5px 0 0 0;">No hay movimientos de silo en el período seleccionado.</p>
+                        </div>
+                    </t>
+
+                    <!-- Grouped by location -->
+                    <t t-if="grouped and data_by_location">
+                        <t t-foreach="data_by_location.items()" t-as="loc_item">
+                            <t t-set="loc_name" t-value="loc_item[0]"/>
+                            <t t-set="loc_data" t-value="loc_item[1]"/>
+
+                            <div style="margin-bottom: 25px; page-break-inside: avoid;">
+                                <h4 style="background-color: #495057; color: white; padding: 10px 15px; margin: 0; border-radius: 4px 4px 0 0;">
+                                    <span style="font-weight: bold;">Silo:</span> <t t-esc="loc_name"/>
+                                </h4>
+
+                                <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #dee2e6;">
+                                    <thead>
+                                        <tr style="background-color: #e9ecef;">
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">No. Mov</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">Producto</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">Macrolote</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">Estado</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">Estado Ant.</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: center;">Fecha</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: center;">Hora</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: left;">Usuario</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: center;">Validado</th>
+                                            <th style="border: 1px solid #dee2e6; padding: 6px; text-align: center;">Cuarentena</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="loc_data['movements']" t-as="mov">
+                                            <tr t-attf-style="background-color: {{ '#fce4ec' if mov.is_quarantine else '#fff' }};">
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.id"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.product_id.default_code or mov.product_id.name or '-'"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.lot_id.name or '-'"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.new_stage_id.name or '-'"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.previous_stage_id.name or '-'"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                                    <t t-if="mov.date">
+                                                        <t t-esc="mov.date.strftime('%Y-%m-%d')"/>
+                                                    </t>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                                    <t t-if="mov.date">
+                                                        <t t-esc="mov.date.strftime('%H:%M:%S')"/>
+                                                    </t>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                                    <t t-esc="mov.user_id.name or '-'"/>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                                    <t t-if="mov.is_validated">
+                                                        <span style="color: green;">✓</span>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span style="color: #999;">-</span>
+                                                    </t>
+                                                </td>
+                                                <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                                    <t t-if="mov.is_quarantine">
+                                                        <span style="color: red;">⚠ Sí</span>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span style="color: #999;">No</span>
+                                                    </t>
+                                                </td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style="background-color: #dee2e6; font-weight: bold;">
+                                            <td colspan="10" style="border: 1px solid #dee2e6; padding: 6px;">
+                                                Total movimientos: <t t-esc="len(loc_data['movements'])"/>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </t>
+                    </t>
+
+                    <!-- Not grouped -->
+                    <t t-if="not grouped and movements">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #dee2e6;">
+                            <thead>
+                                <tr style="background-color: #e9ecef;">
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">No. Mov</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Silo</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Producto</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Macrolote</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Estado</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Estado Ant.</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Fecha/Hora</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Usuario</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Validado</th>
+                                    <th style="border: 1px solid #dee2e6; padding: 6px;">Cuarentena</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="movements" t-as="mov">
+                                    <tr t-attf-style="background-color: {{ '#fce4ec' if mov.is_quarantine else '#fff' }};">
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.id"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.location_id.name or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.product_id.default_code or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.lot_id.name or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.new_stage_id.name or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.previous_stage_id.name or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-if="mov.date">
+                                                <t t-esc="mov.date.strftime('%Y-%m-%d %H:%M')"/>
+                                            </t>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px;">
+                                            <t t-esc="mov.user_id.name or '-'"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                            <t t-if="mov.is_validated">✓</t>
+                                            <t t-else="">-</t>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 4px; text-align: center;">
+                                            <t t-if="mov.is_quarantine">⚠</t>
+                                            <t t-else="">-</t>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+
+                    <!-- Summary -->
+                    <t t-if="movements">
+                        <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <h5 style="margin: 0 0 10px 0;">Resumen</h5>
+                            <table style="width: 50%; font-size: 11px;">
+                                <tr>
+                                    <td style="padding: 4px 0;"><strong>Total Movimientos:</strong></td>
+                                    <td style="padding: 4px 0; text-align: right;"><t t-esc="len(movements)"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0;"><strong>Validados:</strong></td>
+                                    <td style="padding: 4px 0; text-align: right;"><t t-esc="len([m for m in movements if m.is_validated])"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0;"><strong>En Cuarentena:</strong></td>
+                                    <td style="padding: 4px 0; text-align: right;"><t t-esc="len([m for m in movements if m.is_quarantine])"/></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Footer -->
+                    <div style="margin-top: 30px; font-size: 10px; color: #666; border-top: 1px solid #dee2e6; padding-top: 10px;">
+                        <p>Generado por: <t t-esc="user.name"/> | Fecha: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')"/></p>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

@@ -22,7 +22,11 @@ class StockLotMacrolot(models.Model):
     )
 
     quantity_difference = fields.Float(help="Quantity on hand")
-    total_consumption = fields.Float(help="Total consumed")
+    total_consumption = fields.Float(
+        compute="_compute_total_consumption",
+        store=True,
+        help="Total consumed from this lot (sum of all batch line weights)",
+    )
 
     initial_mix = fields.Char(
         compute="_compute_mix_data", store=True, help="Initial mix code"
@@ -76,9 +80,9 @@ class StockLotMacrolot(models.Model):
         help="Porcentaje de grano dañado",
     )
     peso_especifico = fields.Float(
-        string="Peso Específico",
+        string="Peso Específico (g/l)",
         digits=(6, 2),
-        help="Peso específico del grano (kg/hl)",
+        help="Peso específico del grano (g/l)",
     )
     pct_finos = fields.Float(
         string="% Finos",
@@ -94,6 +98,41 @@ class StockLotMacrolot(models.Model):
         string="Notas de Calidad",
         help="Observaciones adicionales del check de calidad",
     )
+
+    # Additional quality fields from Excel "datos de unidades"
+    temperatura = fields.Float(
+        string="Temperatura °C",
+        digits=(5, 2),
+        help="Temperatura del grano al momento de recepción",
+    )
+    suma_impurezas = fields.Float(
+        string="Suma Impurezas (F+Q) %",
+        digits=(5, 2),
+        compute="_compute_suma_impurezas",
+        store=True,
+        help="Suma de finos y quebrados (impurezas totales)",
+    )
+    analista = fields.Char(
+        string="Analista",
+        help="Nombre del analista de calidad",
+    )
+    proveedor_id = fields.Many2one(
+        "res.partner",
+        string="Proveedor",
+        help="Proveedor del grano/material",
+    )
+
+    # Computed fields for reports
+    @api.depends("pct_finos", "pct_quebrados")
+    def _compute_suma_impurezas(self):
+        for lot in self:
+            lot.suma_impurezas = (lot.pct_finos or 0) + (lot.pct_quebrados or 0)
+
+    @api.depends("batch_line_ids", "batch_line_ids.weight")
+    def _compute_total_consumption(self):
+        """Calculate total consumption from all batch lines linked to this lot."""
+        for lot in self:
+            lot.total_consumption = sum(lot.batch_line_ids.mapped("weight") or [0])
 
     @api.depends("product_qty")
     def _compute_ticket_data(self):
