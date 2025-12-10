@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Report Action -->
+    <record id="action_report_stock_inventory" model="ir.actions.report">
+        <field name="name">Reporte de Existencias - Silos</field>
+        <field name="model">stock.inventory.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">stock_location_history.report_stock_inventory</field>
+        <field name="report_file">stock_location_history.report_stock_inventory</field>
+        <field name="print_report_name">'Reporte_Existencias_%s' % (object.date_from)</field>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Report Template -->
+    <template id="report_stock_inventory">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <!-- Header -->
+                    <div class="text-center" style="margin-bottom: 20px;">
+                        <h2>Reporte de Existencias - Silos</h2>
+                        <h4 t-esc="company.name"/>
+                        <t t-if="docs">
+                            <p style="color: #666;">
+                                Período: <t t-esc="docs[0].date_from"/> - <t t-esc="docs[0].date_to"/>
+                            </p>
+                        </t>
+                    </div>
+
+                    <!-- Check if there's data -->
+                    <t t-if="not macrolots">
+                        <div style="background-color: #fff3cd; padding: 15px; text-align: center; border: 1px solid #ffc107; border-radius: 4px;">
+                            <strong>No se encontraron macrolotes</strong>
+                            <p style="margin: 5px 0 0 0;">No hay macrolotes marcados como is_macrolot=True en el sistema.</p>
+                        </div>
+                    </t>
+
+                    <!-- Data by location -->
+                    <t t-foreach="locations" t-as="location">
+                        <t t-set="loc_lots" t-value="lots_by_location.get(location.id, [])"/>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <h4 style="background-color: #495057; color: white; padding: 10px 15px; margin: 0; border-radius: 4px 4px 0 0;">
+                                <span style="font-weight: bold;">Silo:</span> <t t-esc="location.name"/>
+                            </h4>
+
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #dee2e6;">
+                                <thead>
+                                    <tr style="background-color: #e9ecef;">
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">Macrolote</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">Producto</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Entrada (kg)</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Existencia (kg)</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Humedad %</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Dañado %</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">% Finos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="loc_lots" t-as="lot">
+                                        <tr>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px;">
+                                                <t t-esc="lot.name"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px;">
+                                                <t t-esc="lot.product_id.display_name"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:,.2f}'.format(lot.quantity_in or 0)"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:,.2f}'.format(lot.product_qty or 0)"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:.2f}'.format(lot.humedad or 0)"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:.2f}'.format(lot.grano_danado or 0)"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:.2f}'.format(lot.pct_finos or 0)"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #dee2e6; font-weight: bold;">
+                                        <td colspan="2" style="border: 1px solid #dee2e6; padding: 8px;">TOTAL SILO</td>
+                                        <td style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">
+                                            <t t-esc="'{:,.2f}'.format(sum(loc_lots.mapped('quantity_in')))"/>
+                                        </td>
+                                        <td style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">
+                                            <t t-esc="'{:,.2f}'.format(sum(loc_lots.mapped('product_qty')))"/>
+                                        </td>
+                                        <td colspan="3" style="border: 1px solid #dee2e6; padding: 8px;"/>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Lots without location -->
+                    <t t-if="no_location_lots">
+                        <div style="margin-bottom: 25px;">
+                            <h4 style="background-color: #dc3545; color: white; padding: 10px 15px; margin: 0; border-radius: 4px 4px 0 0;">
+                                <span style="font-weight: bold;">⚠ Sin Ubicación Asignada</span>
+                            </h4>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #dee2e6;">
+                                <thead>
+                                    <tr style="background-color: #f8d7da;">
+                                        <th style="border: 1px solid #dee2e6; padding: 8px;">Macrolote</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px;">Producto</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Entrada (kg)</th>
+                                        <th style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">Existencia (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="no_location_lots" t-as="lot">
+                                        <tr>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px;">
+                                                <t t-esc="lot.name"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px;">
+                                                <t t-esc="lot.product_id.display_name"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:,.2f}'.format(lot.quantity_in or 0)"/>
+                                            </td>
+                                            <td style="border: 1px solid #dee2e6; padding: 6px; text-align: right;">
+                                                <t t-esc="'{:,.2f}'.format(lot.product_qty or 0)"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Grand totals -->
+                    <t t-if="macrolots">
+                        <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <h5 style="margin: 0 0 10px 0;">Resumen General</h5>
+                            <table style="width: 50%; font-size: 12px;">
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong>Total Macrolotes:</strong></td>
+                                    <td style="padding: 5px 0; text-align: right;"><t t-esc="len(macrolots)"/></td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong>Total Entradas:</strong></td>
+                                    <td style="padding: 5px 0; text-align: right;"><t t-esc="'{:,.2f}'.format(sum(macrolots.mapped('quantity_in')))"/> kg</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0;"><strong>Total Existencias:</strong></td>
+                                    <td style="padding: 5px 0; text-align: right;"><t t-esc="'{:,.2f}'.format(sum(macrolots.mapped('product_qty')))"/> kg</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Footer -->
+                    <div style="margin-top: 30px; font-size: 10px; color: #666; border-top: 1px solid #dee2e6; padding-top: 10px;">
+                        <p>Generado por: <t t-esc="user.name"/> | Fecha: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')"/></p>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>

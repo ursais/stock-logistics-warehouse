@@ -1,61 +1,148 @@
 <odoo>
-    <!-- FORM VIEW FOR STOCK.LOT -->
+    <!-- ============================================ -->
+    <!-- FORM VIEW FOR STOCK.LOT (Macrolotes)        -->
+    <!-- ============================================ -->
     <record id="view_stock_lot_form_inherit" model="ir.ui.view">
         <field name="name">stock.lot.form.inherit</field>
         <field name="model">stock.lot</field>
         <field name="inherit_id" ref="stock.view_production_lot_form" />
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="before">
+                <!-- Macrolot indicator -->
                 <group>
-                    <field
-                        name="quantity_in"
-                        string="Cantidad (Todo lo que ha entrado)"
-                    />
-                    <field name="first_ticket" string="Primer Ticker" />
-                    <field name="date_first_ticket" string="Fecha PT" />
-                    <field name="last_ticket" string="Ultimo Ticket" />
-                    <field name="date_last_ticket" string="Fecha UT" />
-                    <field
-                        name="quantity_difference"
-                        string="Diferencia (Cantidad a la mano)"
-                    />
-                    <field
-                        name="total_consumption"
-                        string="Cantidad Total (Consumos)"
-                    />
-                    <field name="initial_mix" string="Mezcla Inicial" />
-                    <field name="kg_consumed_mi" string="KG consumidos MI" />
-                    <field name="final_mix" string="Mezcla Final" />
-                    <field name="kg_consumed_mf" string="KG consumidos MF" />
+                    <group string="Configuración Macrolote">
+                        <field name="is_macrolot" />
+                        <field name="location_id" invisible="not is_macrolot" />
+                    </group>
+                </group>
+
+                <!-- Quality Data Section -->
+                <group string="Datos de Calidad" invisible="not is_macrolot">
+                    <group>
+                        <field name="humedad" />
+                        <field name="grano_danado" />
+                        <field name="peso_especifico" />
+                    </group>
+                    <group>
+                        <field name="pct_finos" />
+                        <field name="pct_quebrados" />
+                    </group>
+                    <group colspan="2">
+                        <field name="quality_notes" placeholder="Observaciones del check de calidad..." />
+                    </group>
+                </group>
+
+                <!-- Ticket/Entry Data -->
+                <group string="Entradas (Tickets)">
+                    <group>
+                        <field name="quantity_in" string="Cantidad Total Entrada" />
+                        <field name="first_ticket" string="Primer Ticket" />
+                        <field name="date_first_ticket" string="Fecha Primer Ticket" />
+                    </group>
+                    <group>
+                        <field name="quantity_difference" string="Cantidad a la Mano" />
+                        <field name="last_ticket" string="Último Ticket" />
+                        <field name="date_last_ticket" string="Fecha Último Ticket" />
+                    </group>
+                </group>
+
+                <!-- Consumption/Mix Data -->
+                <group string="Consumos (Mezclas PLC)">
+                    <group>
+                        <field name="total_consumption" string="Total Consumido" />
+                        <field name="initial_mix" string="Mezcla Inicial" />
+                        <field name="initial_mix_date" string="Fecha Mezcla Inicial" />
+                        <field name="kg_consumed_mi" string="KG Consumidos (MI)" />
+                    </group>
+                    <group>
+                        <field name="final_mix" string="Mezcla Final" />
+                        <field name="final_mix_date" string="Fecha Mezcla Final" />
+                        <field name="kg_consumed_mf" string="KG Consumidos (MF)" />
+                    </group>
                 </group>
             </xpath>
         </field>
     </record>
 
-    <!-- TREE VIEW FOR STOCK.LOT -->
+    <!-- ============================================ -->
+    <!-- TREE VIEW FOR STOCK.LOT                     -->
+    <!-- ============================================ -->
     <record id="view_stock_lot_tree_inherit" model="ir.ui.view">
         <field name="name">stock.lot.tree.inherit</field>
         <field name="model">stock.lot</field>
         <field name="inherit_id" ref="stock.view_production_lot_tree" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
-                <field name="quantity_in" string="Cantidad" />
-                <field name="first_ticket" string="Primer Ticker" />
-                <field name="date_first_ticket" string="Fecha PT" />
-                <field name="last_ticket" string="Ultimo Ticket" />
-                <field name="date_last_ticket" string="Fecha UT" />
-                <field
-                    name="quantity_difference"
-                    string="Diferencia (Cantidad a la mano)"
-                />
-                <field name="total_consumption" string="Cantidad Total (Consumos)" />
-                <field name="initial_mix" string="Mezcla Inicial" />
-                <field name="initial_mix_date" string="Fecha Mezcla Inicial" />
-                <field name="kg_consumed_mi" string="KG consumidos MI" />
-                <field name="final_mix" string="Mezcla Final" />
-                <field name="final_mix_date" string="Fecha Mezcla Final" />
-                <field name="kg_consumed_mf" string="KG consumidos MF" />
+                <field name="is_macrolot" optional="hide" />
+                <field name="location_id" string="Silo" optional="show" />
+                <field name="quantity_in" string="Entrada" optional="show" />
+                <field name="first_ticket" string="1er Ticket" optional="hide" />
+                <field name="date_first_ticket" string="Fecha 1er" optional="hide" />
+                <field name="last_ticket" string="Últ Ticket" optional="hide" />
+                <field name="date_last_ticket" string="Fecha Últ" optional="hide" />
+                <field name="total_consumption" string="Consumo" optional="show" />
+                <field name="initial_mix" string="Mezcla Ini" optional="hide" />
+                <field name="initial_mix_date" string="Fecha MI" optional="hide" />
+                <field name="final_mix" string="Mezcla Fin" optional="hide" />
+                <field name="final_mix_date" string="Fecha MF" optional="hide" />
+                <field name="humedad" string="Humedad %" optional="show" />
+                <field name="grano_danado" string="Dañado %" optional="hide" />
+                <field name="peso_especifico" string="Peso Esp" optional="hide" />
+                <field name="pct_finos" string="% Finos" optional="hide" />
+                <field name="pct_quebrados" string="% Quebrados" optional="hide" />
             </xpath>
         </field>
     </record>
+
+    <!-- ============================================ -->
+    <!-- SEARCH VIEW FOR STOCK.LOT                   -->
+    <!-- ============================================ -->
+    <record id="view_stock_lot_search_inherit" model="ir.ui.view">
+        <field name="name">stock.lot.search.inherit</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.search_product_lot_filter" />
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator />
+                <filter name="filter_macrolots" string="Macrolotes" domain="[('is_macrolot', '=', True)]" />
+                <filter name="filter_with_quality" string="Con Datos de Calidad" domain="[('humedad', '!=', 0)]" />
+                <separator />
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_location" string="Silo/Ubicación" context="{'group_by': 'location_id'}" />
+                    <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================ -->
+    <!-- ACTION: Macrolotes View                     -->
+    <!-- ============================================ -->
+    <record id="action_stock_macrolot" model="ir.actions.act_window">
+        <field name="name">Macrolotes</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('is_macrolot', '=', True)]</field>
+        <field name="context">{'default_is_macrolot': True}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No hay macrolotes registrados
+            </p>
+            <p>
+                Los macrolotes representan lotes de materia prima almacenados en silos.
+                Incluyen información de calidad como humedad, grano dañado, etc.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item for Macrolotes -->
+    <menuitem
+        id="menu_stock_macrolot"
+        name="Macrolotes"
+        parent="stock.menu_stock_inventory_control"
+        action="action_stock_macrolot"
+        sequence="15"
+        groups="stock.group_production_lot"
+    />
+
 </odoo>

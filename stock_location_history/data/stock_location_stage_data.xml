@@ -1,31 +1,126 @@
 <odoo>
-    <record id="stock_location_stage_empty" model="stock.location.stage">
-        <field name="name">Empty</field>
+    <!-- ============================================ -->
+    <!-- GAQSA Silo Stages - Flujo de Estados        -->
+    <!-- ============================================ -->
+
+    <!-- Stage 1: Liberado (Default - starting point) -->
+    <record id="stock_location_stage_liberado" model="stock.location.stage">
+        <field name="name">Liberado</field>
         <field name="sequence">10</field>
         <field name="is_default">True</field>
-        <field name="description">Location is empty.</field>
+        <field name="description">El silo está liberado y listo para recibir un nuevo macrolote. 
+            El inspector de calidad ha verificado que el silo está limpio.</field>
     </record>
 
-    <record id="stock_location_stage_ready" model="stock.location.stage">
-        <field name="name">Ready</field>
+    <!-- Stage 2: Llenando -->
+    <record id="stock_location_stage_llenando" model="stock.location.stage">
+        <field name="name">Llenando</field>
         <field name="sequence">20</field>
-        <field name="validation">True</field>
-        <field name="description">Location has been cleaned and is ready to
-            receive a new lot.</field>
+        <field name="description">El silo está en proceso de llenado con materia prima.</field>
     </record>
 
-    <record id="stock_location_stage_occupied" model="stock.location.stage">
-        <field name="name">Occupied</field>
+    <!-- Stage 3: Pausa -->
+    <record id="stock_location_stage_pausa" model="stock.location.stage">
+        <field name="name">Pausa</field>
+        <field name="sequence">25</field>
+        <field name="description">El llenado del silo está pausado temporalmente.</field>
+    </record>
+
+    <!-- Stage 4: Controlado (requires validation) -->
+    <record id="stock_location_stage_controlado" model="stock.location.stage">
+        <field name="name">Controlado</field>
         <field name="sequence">30</field>
         <field name="validation">True</field>
-        <field name="description">Location is occupied and contains a lot.</field>
+        <field name="description">El silo está lleno y requiere validación de calidad 
+            antes de pasar a uso.</field>
     </record>
 
-    <record id="stock_location_stage_retired" model="stock.location.stage">
-        <field name="name">Retired</field>
-        <field name="sequence">90</field>
-        <field name="is_closed">True</field>
-        <field name="fold">True</field>
-        <field name="description">Location has been retired.</field>
+    <!-- Stage 5: Uso -->
+    <record id="stock_location_stage_uso" model="stock.location.stage">
+        <field name="name">Uso</field>
+        <field name="sequence">40</field>
+        <field name="is_use">True</field>
+        <field name="description">El silo está en uso. Se está consumiendo materia prima 
+            para producción.</field>
     </record>
+
+    <!-- Stage 6: Uso + Llenado -->
+    <record id="stock_location_stage_uso_llenado" model="stock.location.stage">
+        <field name="name">Uso + Llenado</field>
+        <field name="sequence">45</field>
+        <field name="is_use">True</field>
+        <field name="description">El silo está en uso y simultáneamente recibiendo 
+            más materia prima.</field>
+    </record>
+
+    <!-- Stage 7: Mantenimiento -->
+    <record id="stock_location_stage_mantenimiento" model="stock.location.stage">
+        <field name="name">Mantenimiento</field>
+        <field name="sequence">80</field>
+        <field name="description">El silo está vacío y en mantenimiento. 
+            El coordinador de operaciones ha iniciado el proceso de limpieza/reparación.</field>
+    </record>
+
+    <!-- Stage 8: Vacío (closed stage - end of cycle) -->
+    <record id="stock_location_stage_vacio" model="stock.location.stage">
+        <field name="name">Vacío</field>
+        <field name="sequence">85</field>
+        <field name="is_closed">True</field>
+        <field name="description">El silo está vacío. El macrolote ha sido consumido 
+            completamente.</field>
+    </record>
+
+    <!-- ============================================ -->
+    <!-- Stage Transitions (next_ids)                -->
+    <!-- ============================================ -->
+
+    <!-- Liberado -> Llenando -->
+    <record id="stock_location_stage_liberado" model="stock.location.stage">
+        <field name="next_ids" eval="[(4, ref('stock_location_stage_llenando'))]"/>
+    </record>
+
+    <!-- Llenando -> Pausa, Controlado -->
+    <record id="stock_location_stage_llenando" model="stock.location.stage">
+        <field name="next_ids" eval="[
+            (4, ref('stock_location_stage_pausa')),
+            (4, ref('stock_location_stage_controlado'))
+        ]"/>
+    </record>
+
+    <!-- Pausa -> Llenando -->
+    <record id="stock_location_stage_pausa" model="stock.location.stage">
+        <field name="next_ids" eval="[(4, ref('stock_location_stage_llenando'))]"/>
+    </record>
+
+    <!-- Controlado -> Uso -->
+    <record id="stock_location_stage_controlado" model="stock.location.stage">
+        <field name="next_ids" eval="[(4, ref('stock_location_stage_uso'))]"/>
+    </record>
+
+    <!-- Uso -> Uso+Llenado, Vacío -->
+    <record id="stock_location_stage_uso" model="stock.location.stage">
+        <field name="next_ids" eval="[
+            (4, ref('stock_location_stage_uso_llenado')),
+            (4, ref('stock_location_stage_vacio'))
+        ]"/>
+    </record>
+
+    <!-- Uso+Llenado -> Uso, Controlado -->
+    <record id="stock_location_stage_uso_llenado" model="stock.location.stage">
+        <field name="next_ids" eval="[
+            (4, ref('stock_location_stage_uso')),
+            (4, ref('stock_location_stage_controlado'))
+        ]"/>
+    </record>
+
+    <!-- Vacío -> Mantenimiento -->
+    <record id="stock_location_stage_vacio" model="stock.location.stage">
+        <field name="next_ids" eval="[(4, ref('stock_location_stage_mantenimiento'))]"/>
+    </record>
+
+    <!-- Mantenimiento -> Liberado (cycle restarts) -->
+    <record id="stock_location_stage_mantenimiento" model="stock.location.stage">
+        <field name="next_ids" eval="[(4, ref('stock_location_stage_liberado'))]"/>
+    </record>
+
 </odoo>

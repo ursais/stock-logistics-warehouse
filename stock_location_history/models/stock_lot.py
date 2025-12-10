@@ -54,6 +54,47 @@ class StockLotMacrolot(models.Model):
         comodel_name="mrp.batch.lines", inverse_name="lot_id", string="Batch Lines"
     )
 
+    # Quality fields - Data from quality check (Excel books)
+    location_id = fields.Many2one(
+        "stock.location",
+        string="Silo/Location",
+        help="Location (silo) where this macrolot is stored",
+    )
+    is_macrolot = fields.Boolean(
+        string="Is Macrolot",
+        default=False,
+        help="Mark if this lot is a macrolot for silo tracking",
+    )
+    humedad = fields.Float(
+        string="Humedad %",
+        digits=(5, 2),
+        help="Porcentaje de humedad del grano",
+    )
+    grano_danado = fields.Float(
+        string="Grano Dañado %",
+        digits=(5, 2),
+        help="Porcentaje de grano dañado",
+    )
+    peso_especifico = fields.Float(
+        string="Peso Específico",
+        digits=(6, 2),
+        help="Peso específico del grano (kg/hl)",
+    )
+    pct_finos = fields.Float(
+        string="% Finos",
+        digits=(5, 2),
+        help="Porcentaje de finos",
+    )
+    pct_quebrados = fields.Float(
+        string="% Quebrados",
+        digits=(5, 2),
+        help="Porcentaje de granos quebrados",
+    )
+    quality_notes = fields.Text(
+        string="Notas de Calidad",
+        help="Observaciones adicionales del check de calidad",
+    )
+
     @api.depends("product_qty")
     def _compute_ticket_data(self):
         for lot in self:
