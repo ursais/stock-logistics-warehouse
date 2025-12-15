@@ -160,7 +160,7 @@
                             </t>
                         </div>
                         <div class="title">
-                            <h2>Reporte de Existencias - Silos</h2>
+                        <h2>Reporte de Existencias - Silos</h2>
                             <div class="company-name" t-esc="company.name"/>
                             <div class="period">
                                 <t t-if="doc.date_from and doc.date_to">
@@ -191,7 +191,7 @@
                                     <span><t t-esc="len(loc_lots)"/> macrolote(s)</span>
                                 </div>
                                 <table class="silo-table">
-                                    <thead>
+                                <thead>
                                         <tr>
                                             <th style="width: 13%;">Macrolote</th>
                                             <th style="width: 6%;">Prod.</th>
@@ -205,14 +205,14 @@
                                             <th style="width: 7%;">Impurez</th>
                                             <th style="width: 7%;">Dañado</th>
                                             <th style="width: 16%;">Analista</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <t t-foreach="loc_lots" t-as="lot">
-                                            <tr>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="loc_lots" t-as="lot">
+                                        <tr>
                                                 <td class="text-left" style="font-weight: 500;">
-                                                    <t t-esc="lot.name"/>
-                                                </td>
+                                                <t t-esc="lot.name"/>
+                                            </td>
                                                 <td class="text-center">
                                                     <t t-esc="lot.product_id.default_code or '-'"/>
                                                 </td>
@@ -233,43 +233,43 @@
                                                 <td class="text-right">
                                                     <t t-esc="'{:.1f}'.format(lot.temperatura or 0)" t-if="lot.temperatura"/>
                                                     <span t-if="not lot.temperatura">-</span>
-                                                </td>
+                                            </td>
                                                 <td class="text-right">
                                                     <t t-esc="'{:.2f}'.format(lot.pct_finos or 0)" t-if="lot.pct_finos"/>
                                                     <span t-if="not lot.pct_finos">-</span>
-                                                </td>
+                                            </td>
                                                 <td class="text-right">
                                                     <t t-esc="'{:.2f}'.format(lot.pct_quebrados or 0)" t-if="lot.pct_quebrados"/>
                                                     <span t-if="not lot.pct_quebrados">-</span>
-                                                </td>
+                                            </td>
                                                 <td class="text-right">
                                                     <t t-esc="'{:.2f}'.format(lot.suma_impurezas or 0)" t-if="lot.suma_impurezas"/>
                                                     <span t-if="not lot.suma_impurezas">-</span>
-                                                </td>
+                                            </td>
                                                 <td class="text-right">
                                                     <t t-esc="'{:.2f}'.format(lot.grano_danado or 0)" t-if="lot.grano_danado"/>
                                                     <span t-if="not lot.grano_danado">-</span>
-                                                </td>
+                                            </td>
                                                 <td class="text-left" style="font-size: 7pt;">
                                                     <t t-esc="lot.analista or '-'"/>
-                                                </td>
-                                            </tr>
-                                        </t>
-                                    </tbody>
-                                    <tfoot>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
                                         <tr>
                                             <td colspan="2" class="text-left">TOTAL SILO</td>
                                             <td class="text-right">
                                                 <t t-esc="'{:,.0f}'.format(sum(lot.quantity_in or 0 for lot in loc_lots))"/>
-                                            </td>
+                                        </td>
                                             <td class="text-right">
                                                 <t t-esc="'{:,.0f}'.format(sum(lot.product_qty or 0 for lot in loc_lots))"/>
-                                            </td>
+                                        </td>
                                             <td colspan="8"></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                         </t>
                     </t>
 
