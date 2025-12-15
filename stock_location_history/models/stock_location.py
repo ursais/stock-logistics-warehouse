@@ -24,6 +24,12 @@ class StockLocation(models.Model):
     last_stage_validated = fields.Boolean(
         string="Is the last stage progress validated?"
     )
+    location_history_ids = fields.One2many(
+        "stock.location.history",
+        "location_id",
+        string="History",
+        help="History of stage changes for this location",
+    )
 
     def _normalize_silo_name_for_plc(self, name):
         """
