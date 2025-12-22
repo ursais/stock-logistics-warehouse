@@ -4,7 +4,7 @@
     "license": "AGPL-3",
     "website": "https://github.com/OCA/stock-logistics-warehouse",
     "author": "Open Source Integrators, Odoo Community Association (OCA)",
-    "depends": ["stock", "gaqsa_plc"],
+    "depends": ["stock", "mrp", "purchase_stock", "gaqsa_plc"],
     "category": "Stock",
     "summary": "Silo management with stages, macrolots, quality data, validation, quarantine and PLC integration",
     "data": [
@@ -21,6 +21,7 @@
         "views/stock_location_stage_views.xml",
         "views/stock_location_history_views.xml",
         "views/stock_lot_views.xml",
+        "views/stock_production_lot_views.xml",
     ],
     "development_status": "Beta",
     "maintainers": ["jasiel-OSI"],

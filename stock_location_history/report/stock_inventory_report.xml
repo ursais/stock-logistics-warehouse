@@ -29,10 +29,11 @@
 
     <!-- Report Template -->
     <template id="report_stock_inventory">
-        <t t-call="web.html_container">
-            <t t-foreach="docs" t-as="doc">
-                <div class="page" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 9pt;">
-                    
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="web.basic_layout">
+                <div class="page" style="font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 9pt;">
+
                     <!-- Embedded styles -->
                     <style>
                         @page {
@@ -149,6 +150,16 @@
                         }
                         .no-location-header {
                             background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+                        }
+
+                        .summary-table,
+                        .summary-table tr,
+                        .summary-table td {
+                        border: none !important;
+                        }
+
+                        .summary-table td {
+                        padding: 0 10px;
                         }
                     </style>
 
@@ -317,7 +328,7 @@
                             <table class="summary-table">
                                 <tr>
                                     <td style="width: 20%;">
-                                        <strong style="font-size: 11pt;">📊 Resumen General</strong>
+                                        <strong style="font-size: 11pt;">Resumen General</strong>
                                     </td>
                                     <td style="width: 20%; text-align: center;">
                                         <div style="color: #6c757d;">Total Macrolotes</div>
@@ -354,6 +365,8 @@
                 </div>
             </t>
         </t>
-    </template>
+    </t>
+</template>
+
 
 </odoo>

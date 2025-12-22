@@ -114,10 +114,9 @@ class StockInventoryReportWizard(models.TransientModel):
     def action_print_report(self):
         """Print the inventory report."""
         self.ensure_one()
-        data = {"form_data": self._get_report_data()}
         return self.env.ref(
             "stock_location_history.action_report_stock_inventory"
-        ).report_action(self, data=data)
+        ).report_action(self)
 
     def action_view_lots(self):
         """Open lots view with filters applied."""
