@@ -8,30 +8,27 @@ class ReportStockInventory(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
         """Prepare values for the report template."""
-        wizards = self.env["stock.inventory.report.wizard"].browse(docids)
-        
-        # Get macrolots
+        wizards = self.env["stock.inventory.report.wizard"].browse(docids).exists()
+        wizard = wizards[:1]
+
         domain = [("is_macrolot", "=", True)]
-        
-        # Apply filters from wizard if available
-        if wizards and len(wizards) == 1:
-            wizard = wizards[0]
+
+        if wizard:
             if wizard.location_ids:
                 domain.append(("location_id", "in", wizard.location_ids.ids))
             if wizard.product_ids:
                 domain.append(("product_id", "in", wizard.product_ids.ids))
-        
-        macrolots = self.env["stock.lot"].search(domain, order="location_id, name")
-        
-        # Group by location
+
+        macrolots = self.env["stock.lot"].search(domain, order="location_id, product_id, name")
+
         locations = macrolots.mapped("location_id")
-        lots_by_location = {}
-        for loc in locations:
-            lots_by_location[loc.id] = macrolots.filtered(lambda l: l.location_id == loc)
-        
-        # Lots without location
+        lots_by_location = {
+            loc.id: macrolots.filtered(lambda l, loc=loc: l.location_id.id == loc.id)
+            for loc in locations
+        }
+
         no_location_lots = macrolots.filtered(lambda l: not l.location_id)
-        
+
         return {
             "doc_ids": docids,
             "doc_model": "stock.inventory.report.wizard",

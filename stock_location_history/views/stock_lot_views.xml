@@ -7,6 +7,15 @@
         <field name="model">stock.lot</field>
         <field name="inherit_id" ref="stock.view_production_lot_form" />
         <field name="arch" type="xml">
+            <xpath expr="//form/sheet" position="before">
+                <header>
+                    <button name="action_recompute_purchase_tickets"
+                            type="object"
+                            string="Recalculate"
+                            class="btn-primary"
+                            invisible="not is_macrolot"/>
+                </header>
+            </xpath>
             <xpath expr="//notebook" position="before">
                 <!-- Macrolot indicator -->
                 <group>
@@ -17,6 +26,7 @@
                 </group>
 
                 <!-- Quality Data Section -->
+                <!--
                 <group string="Datos de Calidad" invisible="not is_macrolot">
                     <group>
                         <field name="peso_especifico" string="P.E. (g/l)"/>
@@ -34,7 +44,7 @@
                         <field name="proveedor_id"/>
                         <field name="quality_notes" placeholder="Observaciones del check de calidad..."/>
                     </group>
-                </group>
+                </group>-->
 
                 <!-- Ticket/Entry Data -->
                 <group string="Entradas (Tickets)">
@@ -42,11 +52,13 @@
                         <field name="quantity_in" string="Cantidad Total Entrada" />
                         <field name="first_ticket" string="Primer Ticket" />
                         <field name="date_first_ticket" string="Fecha Primer Ticket" />
+                        <field name="quantity_first_ticket" />
                     </group>
                     <group>
                         <field name="quantity_difference" string="Cantidad a la Mano" />
                         <field name="last_ticket" string="Último Ticket" />
                         <field name="date_last_ticket" string="Fecha Último Ticket" />
+                        <field name="quantity_last_ticket" />
                     </group>
                 </group>
 
@@ -77,24 +89,30 @@
         <field name="inherit_id" ref="stock.view_production_lot_tree" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
+                <field name="product_id" optional="show" />
                 <field name="is_macrolot" optional="hide" />
                 <field name="location_id" string="Silo" optional="show" />
-                <field name="quantity_in" string="Entrada" optional="show" />
-                <field name="first_ticket" string="1er Ticket" optional="hide" />
-                <field name="date_first_ticket" string="Fecha 1er" optional="hide" />
-                <field name="last_ticket" string="Últ Ticket" optional="hide" />
-                <field name="date_last_ticket" string="Fecha Últ" optional="hide" />
+                <field name="quantity_difference" string="Cantidad a la mano" optional="show" />
+                <field name="quantity_in" string="Entrada Total" optional="show" />
+                <field name="first_ticket" string="Primer Ticket" optional="show" />
+                <field name="date_first_ticket" string="Fecha primer" optional="show" />
+                <field name="quantity_first_ticket" string="Entrada primer Ticket" optional="show" />
+                <field name="last_ticket" string="Últ Ticket" optional="show" />
+                <field name="date_last_ticket" string="Fecha Últ" optional="show" />
+                <field name="quantity_last_ticket" string="Entrada Últ Ticket" optional="show" />
                 <field name="total_consumption" string="Consumo" optional="show" />
                 <field name="initial_mix" string="Mezcla Ini" optional="hide" />
                 <field name="initial_mix_date" string="Fecha MI" optional="hide" />
+                <field name="kg_consumed_mi" string="Consumo primera entrada" optional="show" />
                 <field name="final_mix" string="Mezcla Fin" optional="hide" />
                 <field name="final_mix_date" string="Fecha MF" optional="hide" />
-                <field name="peso_especifico" string="P.E. g/l" optional="show" />
-                <field name="humedad" string="Humedad %" optional="show" />
-                <field name="temperatura" string="Temp °C" optional="hide" />
-                <field name="pct_finos" string="% Finos" optional="hide" />
+                <field name="kg_consumed_mf" string="Consumo última entrada" optional="show" />
+                <!--<field name="peso_especifico" string="P.E. g/l" optional="show" />-->
+                <!--<field name="humedad" string="Humedad %" optional="show" />-->
+                <!--<field name="temperatura" string="Temp °C" optional="hide" />-->
+                <!--<field name="pct_finos" string="% Finos" optional="hide" />-->
                 <field name="pct_quebrados" string="% Quebr" optional="hide" />
-                <field name="suma_impurezas" string="Impurezas %" optional="show" />
+                <!--<field name="suma_impurezas" string="Impurezas %" optional="show" />-->
                 <field name="grano_danado" string="Dañado %" optional="hide" />
                 <field name="analista" optional="hide" />
             </xpath>
@@ -118,6 +136,25 @@
                     <filter name="group_location" string="Silo/Ubicación" context="{'group_by': 'location_id'}" />
                     <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}" />
                 </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================ -->
+    <!-- TREE REMOVE FIELDS FROM STOCK.LOT                     -->
+    <!-- ============================================ -->
+    <record id="view_stock_lot_attribute_inherit" model="ir.ui.view">
+        <field name="name">stock.lot.attribute.inherit</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_tree" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ref']" position="attributes">
+                <attribute name="invisible">1</attribute>
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='create_date']" position="attributes">
+                <attribute name="invisible">1</attribute>
+                <attribute name="column_invisible">1</attribute>
             </xpath>
         </field>
     </record>
