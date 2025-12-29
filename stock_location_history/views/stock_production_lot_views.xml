@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_production_lot_form_inherit_stock_location_history_consumptions" model="ir.ui.view">
+        <field name="name">stock.production.lot.form.inherit.stock_location_history.consumptions</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Macrolot Consumptions">
+                    <field name="consumption_move_line_ids" nolabel="1" readonly="1">
+                        <!--<list create="0" delete="0" edit="0">-->
+                        <list >
+                            <field name="mo_id"/>
+                            <field name="product_id"/>
+                            <field name="mrp_batch_id"/>
+                            <field name="num_mez"/>
+                            <field name="lote_prod"/>
+                            <!--<field name="batch_line" invisible="1"/>-->
+                            <field name="weight"/>
+                            <field name="date"/>
+                        </list>
+                    </field>
+                </page>
+                <page string="Tickets">
+                    <field name="ticket_move_ids" nolabel="1" readonly="1">
+                        <list >
+                            <field name="purchase_id"/>
+                            <field name="move_id"/>
+                            <field name="qty_received"/>
+                            <field name="peso_especifico"/>
+                            <field name="humedad"/>
+                            <field name="temperatura"/>
+                            <field name="pct_finos"/>
+                            <field name="pct_quebrados"/>
+                            <field name="impurezas"/>
+                            <field name="date"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

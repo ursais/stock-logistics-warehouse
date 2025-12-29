@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Paper Format Landscape (must be defined BEFORE report that references it) -->
+    <record id="paperformat_landscape_a4" model="report.paperformat">
+        <field name="name">A4 Horizontal - Silos</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">10</field>
+        <field name="margin_bottom">10</field>
+        <field name="margin_left">8</field>
+        <field name="margin_right">8</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">5</field>
+        <field name="dpi">96</field>
+    </record>
+
+    <!-- Report Action -->
+    <record id="action_report_stock_inventory" model="ir.actions.report">
+        <field name="name">Reporte de Existencias - Silos</field>
+        <field name="model">stock.inventory.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">stock_location_history.report_stock_inventory</field>
+        <field name="report_file">stock_location_history.report_stock_inventory</field>
+        <field name="print_report_name">'Reporte_Existencias_%s' % (object.date_from)</field>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="stock_location_history.paperformat_landscape_a4"/>
+    </record>
+
+    <!-- Report Template -->
+    <template id="report_stock_inventory">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="web.basic_layout">
+                <div class="page" style="font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 9pt;">
+
+                    <!-- Embedded styles -->
+                    <style>
+                        @page {
+                            size: A4 landscape;
+                            margin: 8mm;
+                        }
+                        .report-header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            border-bottom: 2px solid #17a2b8;
+                            padding-bottom: 8px;
+                            margin-bottom: 10px;
+                        }
+                        .report-header .logo {
+                            max-height: 40px;
+                        }
+                        .report-header .title {
+                            text-align: center;
+                            flex-grow: 1;
+                        }
+                        .report-header h2 {
+                            margin: 0;
+                            color: #17a2b8;
+                            font-size: 16pt;
+                        }
+                        .report-header .company-name {
+                            font-size: 11pt;
+                            color: #495057;
+                            margin: 3px 0;
+                        }
+                        .report-header .period {
+                            font-size: 9pt;
+                            color: #6c757d;
+                        }
+                        .silo-section {
+                            margin-bottom: 12px;
+                            page-break-inside: avoid;
+                        }
+                        .silo-header {
+                            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+                            color: white;
+                            padding: 5px 10px;
+                            font-size: 10pt;
+                            font-weight: bold;
+                            border-radius: 3px 3px 0 0;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+                        .silo-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 8pt;
+                        }
+                        .silo-table th {
+                            background-color: #343a40;
+                            color: white;
+                            padding: 4px 3px;
+                            text-align: center;
+                            border: 1px solid #495057;
+                            font-weight: 600;
+                            font-size: 7.5pt;
+                        }
+                        .silo-table td {
+                            padding: 3px 4px;
+                            border: 1px solid #dee2e6;
+                            vertical-align: middle;
+                        }
+                        .silo-table tbody tr:nth-child(even) {
+                            background-color: #f8f9fa;
+                        }
+                        .silo-table tbody tr:hover {
+                            background-color: #e9ecef;
+                        }
+                        .silo-table tfoot td {
+                            background-color: #17a2b8;
+                            color: white;
+                            font-weight: bold;
+                            border-color: #138496;
+                        }
+                        .text-right { text-align: right; }
+                        .text-left { text-align: left; }
+                        .text-center { text-align: center; }
+                        .quality-good { color: #28a745; }
+                        .quality-warn { color: #ffc107; }
+                        .quality-bad { color: #dc3545; }
+                        .summary-box {
+                            background: linear-gradient(135deg, #e7f3ff 0%, #d6ebff 100%);
+                            border: 1px solid #b8daff;
+                            border-radius: 5px;
+                            padding: 10px 15px;
+                            margin-top: 15px;
+                            page-break-inside: avoid;
+                        }
+                        .summary-table {
+                            width: 100%;
+                            font-size: 10pt;
+                        }
+                        .summary-table td {
+                            padding: 3px 8px;
+                        }
+                        .stat-number {
+                            font-size: 14pt;
+                            font-weight: bold;
+                        }
+                        .footer-info {
+                            margin-top: 10px;
+                            padding-top: 5px;
+                            border-top: 1px solid #dee2e6;
+                            font-size: 7pt;
+                            color: #6c757d;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+                        .no-location-header {
+                            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+                        }
+
+                        .summary-table,
+                        .summary-table tr,
+                        .summary-table td {
+                        border: none !important;
+                        }
+
+                        .summary-table td {
+                        padding: 0 10px;
+                        }
+                    </style>
+
+                    <!-- Header -->
+                    <div class="report-header">
+                        <div style="width: 80px;">
+                            <t t-if="company.logo">
+                                <img t-att-src="image_data_uri(company.logo)" class="logo" alt="Logo"/>
+                            </t>
+                        </div>
+                        <div class="title">
+                        <h2>Reporte de Existencias - Silos</h2>
+                            <div class="company-name" t-esc="company.name"/>
+                            <div class="period">
+                                <t t-if="doc.date_from and doc.date_to">
+                                    Período: <t t-esc="doc.date_from"/> al <t t-esc="doc.date_to"/>
+                                </t>
+                            </div>
+                        </div>
+                        <div style="width: 80px; text-align: right; font-size: 8pt; color: #6c757d;">
+                            <t t-esc="len(macrolots)"/> macrolote(s)
+                        </div>
+                    </div>
+
+                    <!-- No data warning -->
+                    <t t-if="not macrolots">
+                        <div style="background-color: #fff3cd; padding: 20px; text-align: center; border: 1px solid #ffc107; border-radius: 5px; margin: 30px 0;">
+                            <strong style="font-size: 12pt;">⚠ No se encontraron macrolotes</strong>
+                            <p style="margin: 10px 0 0 0;">No hay lotes marcados como macrolote en el sistema.</p>
+                        </div>
+                    </t>
+
+                    <!-- Silos with data -->
+                    <t t-foreach="locations" t-as="location">
+                        <t t-set="loc_lots" t-value="lots_by_location.get(location.id, [])"/>
+                        <t t-if="loc_lots">
+                            <div class="silo-section">
+                                <div class="silo-header">
+                                    <span>📦 Silo: <t t-esc="location.name"/></span>
+                                    <span><t t-esc="len(loc_lots)"/> macrolote(s)</span>
+                                </div>
+                                <table class="silo-table">
+                                <thead>
+                                        <tr>
+                                            <th style="width: 13%;">Macrolote</th>
+                                            <th style="width: 6%;">Prod.</th>
+                                            <th style="width: 9%;">Entrada (kg)</th>
+                                            <th style="width: 9%;">Exist. (kg)</th>
+                                            <th style="width: 6%;">P.E.</th>
+                                            <th style="width: 7%;">Hum %</th>
+                                            <th style="width: 6%;">T°C</th>
+                                            <th style="width: 7%;">Finos</th>
+                                            <th style="width: 7%;">Quebr</th>
+                                            <th style="width: 7%;">Impurez</th>
+                                            <th style="width: 7%;">Dañado</th>
+                                            <th style="width: 16%;">Analista</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="loc_lots" t-as="lot">
+                                        <tr>
+                                                <td class="text-left" style="font-weight: 500;">
+                                                <t t-esc="lot.name"/>
+                                            </td>
+                                                <td class="text-center">
+                                                    <t t-esc="lot.product_id.default_code or '-'"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:,.0f}'.format(lot.quantity_in or 0)"/>
+                                                </td>
+                                                <td class="text-right" style="font-weight: 600;">
+                                                    <t t-esc="'{:,.0f}'.format(lot.product_qty or 0)"/>
+                                                </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.0f}'.format(lot.peso_especifico or 0)" t-if="lot.peso_especifico"/>
+                                                    <span t-if="not lot.peso_especifico">-</span>
+                                                </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.1f}'.format(lot.humedad or 0)" t-if="lot.humedad"/>
+                                                    <span t-if="not lot.humedad">-</span>
+                                                </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.1f}'.format(lot.temperatura or 0)" t-if="lot.temperatura"/>
+                                                    <span t-if="not lot.temperatura">-</span>
+                                            </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.2f}'.format(lot.pct_finos or 0)" t-if="lot.pct_finos"/>
+                                                    <span t-if="not lot.pct_finos">-</span>
+                                            </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.2f}'.format(lot.pct_quebrados or 0)" t-if="lot.pct_quebrados"/>
+                                                    <span t-if="not lot.pct_quebrados">-</span>
+                                            </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.2f}'.format(lot.suma_impurezas or 0)" t-if="lot.suma_impurezas"/>
+                                                    <span t-if="not lot.suma_impurezas">-</span>
+                                            </td>
+                                                <td class="text-right">
+                                                    <t t-esc="'{:.2f}'.format(lot.grano_danado or 0)" t-if="lot.grano_danado"/>
+                                                    <span t-if="not lot.grano_danado">-</span>
+                                            </td>
+                                                <td class="text-left" style="font-size: 7pt;">
+                                                    <t t-esc="lot.analista or '-'"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                                <tfoot>
+                                        <tr>
+                                            <td colspan="2" class="text-left">TOTAL SILO</td>
+                                            <td class="text-right">
+                                                <t t-esc="'{:,.0f}'.format(sum(lot.quantity_in or 0 for lot in loc_lots))"/>
+                                        </td>
+                                            <td class="text-right">
+                                                <t t-esc="'{:,.0f}'.format(sum(lot.product_qty or 0 for lot in loc_lots))"/>
+                                        </td>
+                                            <td colspan="8"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        </t>
+                    </t>
+
+                    <!-- Lots without location (simplified view) -->
+                    <t t-if="no_location_lots">
+                        <div class="silo-section">
+                            <div class="silo-header no-location-header">
+                                <span>📋 Sin Ubicación Asignada</span>
+                                <span><t t-esc="len(no_location_lots)"/> macrolote(s)</span>
+                            </div>
+                            <table class="silo-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">Macrolote</th>
+                                        <th style="width: 30%;">Producto</th>
+                                        <th style="width: 20%;">Entrada (kg)</th>
+                                        <th style="width: 20%;">Existencia (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="no_location_lots" t-as="lot">
+                                        <tr>
+                                            <td class="text-left">
+                                                <t t-esc="lot.name"/>
+                                            </td>
+                                            <td class="text-left">
+                                                <t t-esc="lot.product_id.default_code or lot.product_id.name[:30]"/>
+                                            </td>
+                                            <td class="text-right">
+                                                <t t-esc="'{:,.0f}'.format(lot.quantity_in or 0)"/>
+                                            </td>
+                                            <td class="text-right">
+                                                <t t-esc="'{:,.0f}'.format(lot.product_qty or 0)"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Summary -->
+                    <t t-if="macrolots">
+                        <div class="summary-box">
+                            <table class="summary-table">
+                                <tr>
+                                    <td style="width: 20%;">
+                                        <strong style="font-size: 11pt;">Resumen General</strong>
+                                    </td>
+                                    <td style="width: 20%; text-align: center;">
+                                        <div style="color: #6c757d;">Total Macrolotes</div>
+                                        <div class="stat-number" style="color: #17a2b8;">
+                                            <t t-esc="len(macrolots)"/>
+                                        </div>
+                                    </td>
+                                    <td style="width: 30%; text-align: center;">
+                                        <div style="color: #6c757d;">Total Entradas</div>
+                                        <div class="stat-number" style="color: #28a745;">
+                                            <t t-esc="'{:,.0f}'.format(sum(lot.quantity_in or 0 for lot in macrolots))"/> kg
+                                        </div>
+                                    </td>
+                                    <td style="width: 30%; text-align: center;">
+                                        <div style="color: #6c757d;">Total Existencias</div>
+                                        <div class="stat-number" style="color: #007bff;">
+                                            <t t-esc="'{:,.0f}'.format(sum(lot.product_qty or 0 for lot in macrolots))"/> kg
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Footer -->
+                    <div class="footer-info">
+                        <div>
+                            <t t-esc="company.email or 'gaqsa@gaqsa.com'"/> <t t-esc="company.vat or ''"/>
+                        </div>
+                        <div>
+                            Generado por: <t t-esc="user.name"/> | <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')"/>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </t>
+</template>
+
+
+</odoo>
