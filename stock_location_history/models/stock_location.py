@@ -5,6 +5,8 @@ from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
+_logger = logging.getLogger(__name__)
+
 
 class StockLocation(models.Model):
     _inherit = "stock.location"
@@ -34,8 +36,31 @@ class StockLocation(models.Model):
                     _("Cannot disable stage tracking while not on the default stage.")
                 )
 
+    @api.onchange("track_stage")
+    def _onchange_track_stage(self):
+        if self.track_stage and not self.stage_id:
+            # Assign default stage when enabling tracking
+            default_stage = self.env["stock.location.stage"].search(
+                [("is_default", "=", True)], limit=1
+            )
+            if default_stage:
+                self.stage_id = default_stage
+        elif not self.track_stage and self.stage_id:
+            # Prevent disabling tracking if not on default stage
+            default_stage = self.env["stock.location.stage"].search(
+                [("is_default", "=", True)], limit=1
+            )
+            if default_stage and self.stage_id != default_stage:
+                raise ValidationError(
+                    _("Cannot disable stage tracking while not on the default stage.")
+                )
+
     stage_id = fields.Many2one("stock.location.stage", string="Stage")
     lot_id = fields.Many2one("stock.lot")
+    # product_id = fields.Many2one(related="lot_id.product_id", store=True)
+    actual_product_id = fields.Many2one(
+        "product.product", string="Product", domain=[("tracking", "=", "lot")]
+    )
     # product_id = fields.Many2one(related="lot_id.product_id", store=True)
     actual_product_id = fields.Many2one(
         "product.product", string="Product", domain=[("tracking", "=", "lot")]
@@ -59,8 +84,8 @@ class StockLocation(models.Model):
     @api.constrains("stage_id")
     def check_stage_change(self):
         default_stage = self.env["stock.location.stage"].search(
-                [("is_default", "=", True)], limit=1
-            )
+            [("is_default", "=", True)], limit=1
+        )
         self.ensure_one()
         # Check if we're trying to disable track_stage when not on default stage
         # This runs when stage_id changes, so we check if track_stage is False
@@ -70,8 +95,8 @@ class StockLocation(models.Model):
                 raise ValidationError(
                     _("Cannot disable stage tracking while not on the default stage.")
                 )
-            
-        if (not self.last_stage_id and not self.stage_id.is_default):
+
+        if not self.last_stage_id and not self.stage_id.is_default:
             if not self.actual_product_id:
                 raise ValidationError(
                     _("A product must be assigned before changing stages.")
@@ -249,6 +274,7 @@ class StockLocation(models.Model):
                     return True
         except Exception as e:
             raise ValidationError(_(f"Error querying in MSSQL: {e}")) from e
+
     def macrolotCreation(self):
         # Create a new lot with the requested naming convention
         # Format: <location_name>-<5-digit_consecutive_number>
@@ -259,7 +285,18 @@ class StockLocation(models.Model):
         existing_lots = self.env["stock.lot"].search(
             [("name", "like", f"{location_name}-")]
         )
-        next_number = len(existing_lots) + 1
+
+        max_number = 0
+        for lot in existing_lots:
+            if "-" in lot.name:
+                suffix = lot.name.split("-")[-1]
+                if suffix.isdigit():
+                    num = int(suffix)
+                    if num > max_number:
+                        max_number = num
+
+        next_number = max_number + 1
+
         lot_name = f"{location_name}-{next_number:05d}"
         lot_vals = {
             "name": lot_name,
