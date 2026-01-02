@@ -34,7 +34,7 @@ class StockLocation(models.Model):
     def _normalize_silo_name_for_plc(self, name):
         """
         Normalize silo name from Odoo format to IPM/PLC expected format.
-        
+
         IPM expects:
         - S1-S31 (silos de stock) - NOT S01, S02
         - BOD1-BOD2 (bodegas)
@@ -42,7 +42,7 @@ class StockLocation(models.Model):
         - R1, R2
         - A1-A3
         - C1-C12
-        
+
         This function converts:
         - S01 → S1 (remove leading zero after prefix)
         - S10 → S10 (no change, no leading zero)
@@ -51,30 +51,60 @@ class StockLocation(models.Model):
         """
         if not name:
             return name
-        
+
         # Match pattern: alphabetic prefix + numeric part (optionally with suffix like "B")
         # Examples: S01, S1, S31, BOD1, D20B, R1, A3, C12
         match = re.match(r'^([A-Za-z]+)(0*)(\d+)([A-Za-z]*)$', name.strip())
-        
+
         if match:
             prefix = match.group(1).upper()  # S, BOD, D, R, A, C
             leading_zeros = match.group(2)    # Leading zeros to remove
             number = match.group(3)           # The actual number
             suffix = match.group(4).upper()   # Optional suffix like "B"
-            
+
             # Reconstruct without leading zeros
             normalized = f"{prefix}{number}{suffix}"
-            
+
             if normalized != name:
                 _logger.info(
                     "Normalized silo name for PLC: '%s' → '%s'",
                     name, normalized
                 )
-            
+
             return normalized
-        
+
         # If pattern doesn't match, return original (uppercase)
         return name.upper()
+
+    def _format_silo_name_for_lot(self, name):
+        """Format silo name for macrolot code.
+
+        Business rule:
+        - Stock silos must be 2 digits: S01, S02, ..., S31 (zero-padded).
+        - Other prefixes keep the original naming (only uppercased).
+
+        Note:
+        - PLC/IPM integration can still use `_normalize_silo_name_for_plc()` which removes leading zeros.
+        """
+        if not name:
+            return name
+
+        name = name.strip().upper()
+
+        # Match: alpha prefix + optional zeros + numeric part + optional suffix (e.g. D20B)
+        match = re.match(r"^([A-Z]+)(0*)(\d+)([A-Z]*)$", name)
+        if not match:
+            return name
+
+        prefix = match.group(1)
+        number = match.group(3)
+        suffix = match.group(4)
+
+        if prefix == "S":
+            # Always pad stock silos to 2 digits
+            return f"S{int(number):02d}{suffix}"
+
+        return name
 
     @api.onchange("track_stage")
     def _onchange_track_stage(self):
@@ -322,22 +352,36 @@ class StockLocation(models.Model):
     def macrolotCreation(self):
         """
         Create a new macrolot with IPM/PLC compatible naming convention.
-        
+
         Format: <normalized_silo_name>-<5-digit_consecutive_number>
         Examples: S1-00001, S31-00002, BOD1-00001, D20B-00001
-        
+
         IPM expects silo names without leading zeros:
         - S1-S31 (NOT S01-S31)
         - BOD1-BOD2
         - D1-D20B
         """
         # Normalize silo name for PLC compatibility (S01 → S1)
-        location_name = self._normalize_silo_name_for_plc(self.name)
-        
+        #location_name = self._normalize_silo_name_for_plc(self.name)
+        location_name = self._format_silo_name_for_lot(self.name)
+        legacy_location_name = self._normalize_silo_name_for_plc(self.name)
+
+        name_prefixes = [p for p in {location_name, legacy_location_name} if p]
+        if len(name_prefixes) == 1:
+            domain = [("name", "ilike", f"{name_prefixes[0]}-%")]
+        else:
+            domain = [
+                "|",
+                ("name", "ilike", f"{name_prefixes[0]}-%"),
+                ("name", "ilike", f"{name_prefixes[1]}-%"),
+            ]
+
+        existing_lots = self.env["stock.lot"].search(domain)
+
         # Count existing lots for this location (search with normalized name)
-        existing_lots = self.env["stock.lot"].search(
-            [("name", "like", f"{location_name}-")]
-        )
+        #existing_lots = self.env["stock.lot"].search(
+        #    [("name", "like", f"{location_name}-")]
+        #)
 
         max_number = 0
         for lot in existing_lots:
