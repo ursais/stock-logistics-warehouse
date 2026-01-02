@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from collections import defaultdict
 
 
 class StockLotMacrolot(models.Model):
@@ -36,8 +37,10 @@ class StockLotMacrolot(models.Model):
     batch_line_ids = fields.One2many(comodel_name="mrp.batch.lines", inverse_name="lot_id", string="Batch Lines")
 
     # Quality fields - Data from quality check (Excel books)
-    location_id = fields.Many2one("stock.location",string="Silo/Location",
-                                  help="Location (silo) where this macrolot is stored")
+    location_id = fields.Many2one(comodel_name="stock.location", string="Silo/Location",
+                                  help="Current internal location where this lot is stored (assigned silo has priority).")
+
+    location_lot = fields.Char(string="Ubicación Lote", readonly=True, copy=False, index=True)
 
     is_macrolot = fields.Boolean(string="Is Macrolot", default=False,
                                  help="Mark if this lot is a macrolot for silo tracking")
@@ -53,6 +56,11 @@ class StockLotMacrolot(models.Model):
     pct_quebrados = fields.Float(string="% Quebrados", digits=(5, 2), help="Porcentaje de granos quebrados")
 
     quality_notes = fields.Text(string="Notas de Calidad", help="Observaciones adicionales del check de calidad")
+
+    assigned_location_ids = fields.One2many(comodel_name="stock.location", inverse_name="lot_id", string="Assigned Silos",
+                                            readonly=True)
+
+    quant_ids = fields.One2many(comodel_name="stock.quant", inverse_name="lot_id", string="Quants", readonly=True)
 
     # Additional quality fields from Excel "datos de unidades"
     temperatura = fields.Float(string="Temperatura °C", digits=(5, 2),
@@ -143,7 +151,10 @@ class StockLotMacrolot(models.Model):
 
 
             lot.quantity_in = sum(purchase_lines.mapped("qty_received") or [0.0])
-            lot.quantity_difference = (lot.quantity_in) - (lot.total_consumption)
+            if lot.quantity_in != 0.0:
+                lot.quantity_difference = (lot.quantity_in) - (lot.total_consumption)
+            else:
+                lot.quantity_difference = 0.0
             lot.product_qty = (lot.quantity_in) - (lot.total_consumption)
 
     @api.depends("batch_line_ids.batch_id")
@@ -191,6 +202,7 @@ class StockLotMacrolot(models.Model):
     def action_recompute_purchase_tickets(self):
         for lot in self:
             lot._compute_ticket_data()
+            lot._compute_location_id()
             lot.write({
                 "quantity_in": lot.quantity_in,
                 "quantity_difference": lot.quantity_difference,
@@ -202,3 +214,86 @@ class StockLotMacrolot(models.Model):
                 "quantity_first_ticket": lot.quantity_first_ticket,
                 "quantity_last_ticket": lot.quantity_last_ticket,
             })
+
+    @api.depends(
+        "assigned_location_ids",
+        "assigned_location_ids.usage",
+        "quant_ids",
+        "quant_ids.quantity",
+        "quant_ids.location_id",
+        "quant_ids.location_id.usage",
+        "location_id",
+    )
+    def _compute_location_id(self):
+        StockLocation = self.env["stock.location"].sudo()
+        StockQuant = self.env["stock.quant"].sudo()
+
+        # 1) Map lot -> assigned silo (stock.location.lot_id)
+        assigned_map = {}
+        assigned_locations = StockLocation.search([
+            ("lot_id", "in", self.ids),
+            ("usage", "=", "internal"),
+        ], order="id asc")
+
+        for loc in assigned_locations:
+            # si hay varias, nos quedamos con la primera por simplicidad
+            assigned_map.setdefault(loc.lot_id.id, loc)
+
+        # 2) Map lot -> location with max qty (from quants)
+        qty_by_lot_loc = defaultdict(float)
+        groups = StockQuant.read_group(
+            domain=[
+                ("lot_id", "in", self.ids),
+                ("quantity", ">", 0),
+                ("location_id.usage", "=", "internal"),
+            ],
+            fields=["quantity:sum", "lot_id", "location_id"],
+            groupby=["lot_id", "location_id"],
+            lazy=False,
+        )
+
+        for g in groups:
+            lot_id = g["lot_id"][0] if g.get("lot_id") else False
+            loc_id = g["location_id"][0] if g.get("location_id") else False
+            qty = g.get("quantity_sum") or 0.0
+            if lot_id and loc_id:
+                qty_by_lot_loc[(lot_id, loc_id)] += qty
+
+        best_quant_loc_by_lot = {}
+        for (lot_id, loc_id), qty in qty_by_lot_loc.items():
+            current = best_quant_loc_by_lot.get(lot_id)
+            if not current or qty > current["qty"]:
+                best_quant_loc_by_lot[lot_id] = {"loc_id": loc_id, "qty": qty}
+
+        for lot in self:
+            # Prioridad 1: silo asignado
+            if assigned_map.get(lot.id):
+                lot.location_id = assigned_map[lot.id]
+                continue
+
+            # Prioridad 2: ubicación por quants (existencia real)
+            best = best_quant_loc_by_lot.get(lot.id)
+            lot.location_id = best["loc_id"] if best else False
+
+    def _ensure_location_lot_snapshot(self):
+        """Freeze the first internal location full name into location_lot (one-time)."""
+        for lot in self:
+            if lot.location_lot:
+                continue
+            if lot.location_id:
+                full_name = lot.location_id.complete_name or lot.location_id.display_name or lot.location_id.name
+                lot.sudo().with_context(skip_location_lot_snapshot=True).write({"location_lot": full_name})
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lots = super().create(vals_list)
+        # Try to snapshot on create (may be empty if location_id isn't computed yet)
+        lots._ensure_location_lot_snapshot()
+        return lots
+
+    def read(self, fields=None, load="_classic_read"):
+        res = super().read(fields=fields, load=load)
+        # Snapshot on first open/read (only for missing ones)
+        if not self.env.context.get("skip_location_lot_snapshot"):
+            self._ensure_location_lot_snapshot()
+        return res
