@@ -22,6 +22,9 @@
                     <group string="Configuración Macrolote">
                         <field name="is_macrolot" />
                         <field name="location_id" invisible="not is_macrolot" />
+                        <field name="location_lot" invisible="not is_macrolot" />
+                        <field name="assigned_location_ids" invisible="1" />
+                        <field name="quant_ids" invisible="1" />
                     </group>
                 </group>
 
@@ -91,7 +94,8 @@
             <xpath expr="//field[@name='name']" position="after">
                 <field name="product_id" optional="show" />
                 <field name="is_macrolot" optional="hide" />
-                <field name="location_id" string="Silo" optional="show" />
+                <field name="location_id" string="Silo" optional="hide" />
+                <field name="location_lot" string="Silo" optional="show" />
                 <field name="quantity_difference" string="Cantidad a la mano" optional="show" />
                 <field name="quantity_in" string="Entrada Total" optional="show" />
                 <field name="first_ticket" string="Primer Ticket" optional="show" />

@@ -12,6 +12,17 @@ class ReportStockInventory(models.AbstractModel):
         wizard = wizards[:1]
 
         domain = [("is_macrolot", "=", True)]
+        #domain = ["|", ("is_macrolot", "=", True), ("product_qty", ">", 0.0)]
+
+        ProductCategory = self.env["product.category"].sudo()
+
+        macros_categories = ProductCategory.search([("name", "=", "MACROS")])
+        if not macros_categories:
+            # fallback por si el nombre tiene variaciones o hay varias rutas
+            macros_categories = ProductCategory.search([("complete_name", "ilike", "MACROS")])
+
+        if macros_categories:
+            domain.append(("product_id.categ_id", "child_of", macros_categories.ids))
 
         if wizard:
             if wizard.location_ids:

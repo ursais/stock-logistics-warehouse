@@ -122,7 +122,18 @@ class StockInventoryReportWizard(models.TransientModel):
         """Open lots view with filters applied."""
         self.ensure_one()
 
-        domain = [("is_macrolot", "=", True)]
+        domain = ["&", ("is_macrolot", "=", True)]
+        #domain = ["&", ("product_id.tracking", "=", "lot"), "|", ("is_macrolot", "=", True), ("product_qty", ">", 0.0)]
+
+        ProductCategory = self.env["product.category"].sudo()
+
+        macros_categories = ProductCategory.search([("name", "=", "MACROS")])
+        if not macros_categories:
+            # fallback por si el nombre tiene variaciones o hay varias rutas
+            macros_categories = ProductCategory.search([("complete_name", "ilike", "MACROS")])
+
+        if macros_categories:
+            domain.append(("product_id.categ_id", "in", macros_categories.ids))
 
         if self.location_ids:
             domain.append(("location_id", "in", self.location_ids.ids))
