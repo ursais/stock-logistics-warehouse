@@ -85,7 +85,23 @@ class StockProductionLot(models.Model):
 
             rec = existing_map.get(key)
             if rec:
-                changed = any(rec[k] != vals[k] for k in vals.keys() if k in rec._fields)
+                changed = False
+                for k in vals.keys():
+                    if k not in rec._fields:
+                        continue
+                    field = rec._fields[k]
+                    rec_value = rec[k]
+                    val_value = vals[k]
+                    # For Many2one fields, compare IDs instead of recordsets
+                    if field.type == 'many2one':
+                        rec_id = rec_value.id if rec_value else False
+                        if rec_id != val_value:
+                            changed = True
+                            break
+                    else:
+                        if rec_value != val_value:
+                            changed = True
+                            break
                 if changed:
                     rec.write(vals)
             else:
