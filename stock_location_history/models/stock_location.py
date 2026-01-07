@@ -285,7 +285,7 @@ class StockLocation(models.Model):
                 query = """UPDATE Macrolotes SET Macrolote =?
                             WHERE CodMat=? AND Silo=?"""
 
-                conn.execute(query, (macrolote, codmat, silo))
+                conn.exec_driver_sql(query, (macrolote, codmat, silo))
                 conn.commit()
                 _logger.info(
                     "Updated macrolote in PLC: Silo=%s, CodMat=%s, Macrolote=%s",
@@ -308,7 +308,7 @@ class StockLocation(models.Model):
 
                 query = """INSERT INTO Macrolotes (Silo, CodMat, NomMat, Macrolote)
                                 VALUES(?,?,?,?);"""
-                conn.execute(query, (silo, codmat, nommat, macrolote))
+                conn.exec_driver_sql(query, (silo, codmat, nommat, macrolote))
                 conn.commit()
                 _logger.info(
                     "Inserted macrolote in PLC: Silo=%s, CodMat=%s, NomMat=%s, Macrolote=%s",
@@ -330,7 +330,7 @@ class StockLocation(models.Model):
                     "FROM Macrolotes WHERE CodMat=? AND Silo=?;"
                 )
 
-                result = conn.execute(query, (codmat, silo))
+                result = conn.exec_driver_sql(query, (codmat, silo))
 
                 rows = result.fetchall()
 
