@@ -2,7 +2,8 @@
 # Copyright 2018 Camptocamp SA
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl)
 
-from odoo import _, api, fields, models
+
+from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.tools import float_compare
 
@@ -36,13 +37,11 @@ class StockMoveLocationWizardLine(models.TransientModel):
     )
     package_id = fields.Many2one(
         string="Package Number",
-        comodel_name="stock.quant.package",
+        comodel_name="stock.package",
         domain="[('location_id', '=', origin_location_id)]",
     )
     owner_id = fields.Many2one(comodel_name="res.partner", string="From Owner")
-    move_quantity = fields.Float(
-        string="Quantity to move", digits="Product Unit of Measure"
-    )
+    product_uom_qty = fields.Float(string="Quantity", digits="Product Unit of Measure")
     max_quantity = fields.Float(
         string="Maximum available quantity", digits="Product Unit of Measure"
     )
@@ -59,27 +58,50 @@ class StockMoveLocationWizardLine(models.TransientModel):
                 record.move_location_wizard_id.destination_location_id
             )
 
-    @staticmethod
-    def _compare(qty1, qty2, precision_rounding):
-        return float_compare(qty1, qty2, precision_rounding=precision_rounding)
-
-    @api.constrains("max_quantity", "move_quantity")
+    @api.constrains("max_quantity", "product_uom_qty")
     def _constraint_max_move_quantity(self):
         for record in self:
             rounding = record.product_uom_id.rounding
             move_qty_gt_max_qty = (
-                self._compare(record.move_quantity, record.max_quantity, rounding) == 1
+                float_compare(record.product_uom_qty, record.max_quantity, rounding)
+                == 1
             )
-            move_qty_lt_0 = self._compare(record.move_quantity, 0.0, rounding) == -1
+            move_qty_lt_0 = float_compare(record.product_uom_qty, 0.0, rounding) == -1
             if move_qty_gt_max_qty or move_qty_lt_0:
                 raise ValidationError(
-                    _("Move quantity can not exceed max quantity or be negative")
+                    self.env._(
+                        "Move quantity can not exceed max quantity or be negative"
+                    )
                 )
+
+    def group_by_product(self):
+        """Group lines by product_id."""
+        lines_grouped = {}
+        for line in self:
+            lines_grouped.setdefault(line.product_id.id, self.browse())
+            lines_grouped[line.product_id.id] |= line
+        return lines_grouped
+
+    def calculate_total_quantity(self, wizard):
+        """Calculate total quantity for this group of lines."""
+        qty = 0
+        for line in self:
+            if wizard.env.context.get("planned"):
+                line_qty = line.product_uom_qty
+            else:
+                available_qty = wizard._get_stock_quantities(
+                    line.product_id, line.lot_id, line.package_id, line.owner_id
+                )
+                line_qty = (
+                    min(available_qty, line.product_uom_qty) if available_qty else 0
+                )
+            qty += line_qty
+        return qty
 
     def create_move_lines(self, picking, move):
         for line in self:
             values = line._get_move_line_values(picking, move)
-            if not self.env.context.get("planned") and values.get("quantity") <= 0:
+            if values.get("quantity") <= 0:
                 continue
             self.env["stock.move.line"].create(values)
         return True
@@ -91,7 +113,8 @@ class StockMoveLocationWizardLine(models.TransientModel):
             and self.destination_location_id._get_putaway_strategy(self.product_id).id
             or self.destination_location_id.id
         )
-        qty_done = self._get_available_quantity()
+        # Use the move's quantity to ensure consistency between move and move line
+        qty_done = move.product_uom_qty
         return {
             "product_id": self.product_id.id,
             "lot_id": self.lot_id.id,
@@ -101,46 +124,4 @@ class StockMoveLocationWizardLine(models.TransientModel):
             "location_id": self.origin_location_id.id,
             "location_dest_id": location_dest_id,
             "quantity": qty_done,
-            "product_uom_id": self.product_uom_id.id,
-            "picking_id": picking.id,
-            "move_id": move.id,
         }
-
-    def _get_available_quantity(self):
-        """We check here if the actual amount changed in the stock.
-
-        We don't care about the reservations but we do care about not moving
-        more than exists."""
-        self.ensure_one()
-        if not self.product_id:
-            return 0
-        if self.env.context.get("planned"):
-            # for planned transfer we don't care about the amounts at all
-            return 0.0
-        search_args = [
-            ("location_id", "=", self.origin_location_id.id),
-            ("product_id", "=", self.product_id.id),
-        ]
-        if self.lot_id:
-            search_args.append(("lot_id", "=", self.lot_id.id))
-        else:
-            search_args.append(("lot_id", "=", False))
-        if self.package_id:
-            search_args.append(("package_id", "=", self.package_id.id))
-        else:
-            search_args.append(("package_id", "=", False))
-        if self.owner_id:
-            search_args.append(("owner_id", "=", self.owner_id.id))
-        else:
-            search_args.append(("owner_id", "=", False))
-        res = self.env["stock.quant"].read_group(search_args, ["quantity"], [])
-        available_qty = res[0]["quantity"]
-        if not available_qty:
-            # if it is immediate transfer and product doesn't exist in that
-            # location -> make the transfer of 0.
-            return 0
-        rounding = self.product_uom_id.rounding
-        available_qty_lt_move_qty = (
-            self._compare(available_qty, self.move_quantity, rounding) == -1
-        )
-        return available_qty if available_qty_lt_move_qty else self.move_quantity

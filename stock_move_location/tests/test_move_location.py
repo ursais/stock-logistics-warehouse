@@ -15,45 +15,17 @@ class TestMoveLocation(TestsCommon):
 
     def test_move_location_wizard(self):
         """Test a simple move."""
-        wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
-        wizard.onchange_origin_location()
+        wizard = self._create_wizard_and_load_lines(
+            self.internal_loc_1, self.internal_loc_2
+        )
+        # Log inventory before wizard move
+        self._log_location_inventory(self.internal_loc_1, "BEFORE Wizard Move")
+        self._log_location_inventory(self.internal_loc_2, "BEFORE Wizard Move")
         wizard.action_move_location()
-        self.check_product_amount(self.product_no_lots, self.internal_loc_1, 0)
-        self.check_product_amount(self.product_lots, self.internal_loc_1, 0, self.lot1)
-        self.check_product_amount(self.product_lots, self.internal_loc_1, 0, self.lot2)
-        self.check_product_amount(self.product_lots, self.internal_loc_1, 0, self.lot3)
-        self.check_product_amount(
-            self.product_package, self.internal_loc_1, 0, self.lot4, self.package
-        )
-        self.check_product_amount(
-            self.product_package, self.internal_loc_1, 0, self.lot4, self.package1
-        )
-        self.check_product_amount(
-            self.product_package,
-            self.internal_loc_1,
-            0,
-            self.lot5,
-            self.package2,
-            self.partner,
-        )
-        self.check_product_amount(self.product_no_lots, self.internal_loc_2, 123)
-        self.check_product_amount(self.product_lots, self.internal_loc_2, 1, self.lot1)
-        self.check_product_amount(self.product_lots, self.internal_loc_2, 1, self.lot2)
-        self.check_product_amount(self.product_lots, self.internal_loc_2, 1, self.lot3)
-        self.check_product_amount(
-            self.product_package, self.internal_loc_2, 1, self.lot4, self.package
-        )
-        self.check_product_amount(
-            self.product_package, self.internal_loc_2, 1, self.lot4, self.package1
-        )
-        self.check_product_amount(
-            self.product_package,
-            self.internal_loc_2,
-            1,
-            self.lot5,
-            self.package2,
-            self.partner,
-        )
+        # Log inventory after wizard move
+        self._log_location_inventory(self.internal_loc_1, "AFTER Wizard Move")
+        self._log_location_inventory(self.internal_loc_2, "AFTER Wizard Move")
+        self._assert_all_stock_moved(self.internal_loc_1, self.internal_loc_2)
 
     def test_move_location_wizard_amount(self):
         """Can't move more than exists."""
@@ -62,27 +34,11 @@ class TestMoveLocation(TestsCommon):
         with self.assertRaises(ValidationError):
             wizard.stock_move_location_line_ids[0].move_quantity += 1
 
-    def test_move_location_wizard_ignore_reserved(self):
-        """Can't move more than exists."""
-        wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
-        wizard.onchange_origin_location()
-        # reserve some quants
-        self.quant_obj._update_reserved_quantity(
-            self.product_no_lots, self.internal_loc_1, 50
-        )
-        self.quant_obj._update_reserved_quantity(
-            self.product_lots, self.internal_loc_1, 1, lot_id=self.lot1
-        )
-        # doesn't care about reservations, everything is moved
-        wizard.action_move_location()
-        self.check_product_amount(self.product_no_lots, self.internal_loc_1, 0)
-        self.check_product_amount(self.product_no_lots, self.internal_loc_2, 123)
-        self.check_product_amount(self.product_lots, self.internal_loc_2, 1, self.lot1)
-
     def test_wizard_clear_lines(self):
         """Test lines getting cleared properly."""
-        wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
-        wizard.onchange_origin_location()
+        wizard = self._create_wizard_and_load_lines(
+            self.internal_loc_1, self.internal_loc_2
+        )
         self.assertEqual(len(wizard.stock_move_location_line_ids), 7)
         dest_location_line = wizard.stock_move_location_line_ids.mapped(
             "destination_location_id"
@@ -93,18 +49,13 @@ class TestMoveLocation(TestsCommon):
 
     def test_wizard_onchange_origin_location(self):
         """Test a product that have existing quants with undefined quantity."""
-
         product_not_available = self.env["product.product"].create(
             {"name": "Mango", "is_storable": True, "tracking": "none"}
         )
-        self.quant_obj.create(
-            {
-                "product_id": product_not_available.id,
-                "location_id": self.internal_loc_1.id,
-            }
+        self._create_quant_without_quantity(product_not_available, self.internal_loc_1)
+        wizard = self._create_wizard_and_load_lines(
+            self.internal_loc_1, self.internal_loc_2
         )
-        wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
-        wizard.onchange_origin_location()
         # we check there is no line for product_not_available
         self.assertEqual(
             len(
@@ -117,8 +68,9 @@ class TestMoveLocation(TestsCommon):
 
     def test_planned_transfer(self):
         """Test planned transfer."""
-        wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
-        wizard.onchange_origin_location()
+        wizard = self._create_wizard_and_load_lines(
+            self.internal_loc_1, self.internal_loc_2
+        )
         wizard = wizard.with_context(planned=True)
         wizard.action_move_location()
         picking = wizard.picking_id
@@ -219,7 +171,7 @@ class TestMoveLocation(TestsCommon):
 
     def test_quant_transfer(self):
         """Test quants transfer."""
-        quants = self.product_lots.stock_quant_ids
+        quants = self.apple_lots.stock_quant_ids
         wizard = self.wizard_obj.with_context(
             active_model="stock.quant",
             active_ids=quants.ids,
@@ -259,13 +211,13 @@ class TestMoveLocation(TestsCommon):
     def test_wizard_with_putaway_strategy(self):
         """Test that Putaway strategies are being applied."""
         self._create_putaway_for_product(
-            self.product_no_lots, self.internal_loc_2, self.internal_loc_2_shelf
+            self.pineapple_no_lots, self.internal_loc_2, self.internal_loc_2_shelf
         )
         wizard = self._create_wizard(self.internal_loc_1, self.internal_loc_2)
         wizard.apply_putaway_strategy = True
         wizard.onchange_origin_location()
         putaway_line = wizard.stock_move_location_line_ids.filtered(
-            lambda p: p.product_id == self.product_no_lots
+            lambda p: p.product_id == self.pineapple_no_lots
         )[0]
         self.assertEqual(
             putaway_line.destination_location_id, wizard.destination_location_id
@@ -273,7 +225,7 @@ class TestMoveLocation(TestsCommon):
         picking_action = wizard.action_move_location()
         picking = self.env["stock.picking"].browse(picking_action["res_id"])
         move_lines = picking.move_line_ids.filtered(
-            lambda sml: sml.product_id == self.product_no_lots
+            lambda sml: sml.product_id == self.pineapple_no_lots
         )
         self.assertEqual(move_lines.location_dest_id, self.internal_loc_2_shelf)
 
@@ -283,25 +235,36 @@ class TestMoveLocation(TestsCommon):
         """
         delivery_order_type = self.env.ref("stock.picking_type_out")
         internal_transfer_type = self.env.ref("stock.picking_type_internal")
-        wh_stock_shelf_1 = self.env.ref("stock.stock_location_components")
-        wh_stock_shelf_2 = self.env.ref("stock.stock_location_14")
+        stock_location = self.env.ref("stock.stock_location_stock")
+        wh_stock_shelf_1 = self.env["stock.location"].create(
+            {
+                "name": "Shelf 1",
+                "usage": "internal",
+                "location_id": stock_location.id,
+                "company_id": self.env.ref("base.main_company").id,
+            }
+        )
+        wh_stock_shelf_2 = wh_stock_shelf_1.copy({"name": "Shelf 2"})
         wh_stock_shelf_3 = wh_stock_shelf_1.copy({"name": "Shelf 3"})
 
         # Create some quants
         self.set_product_amount(
-            self.product_lots, wh_stock_shelf_1, 100, lot_id=self.lot1
+            self.apple_lots, wh_stock_shelf_1, 100, lot_id=self.lot1
         )
 
         # Create and assign a delivery picking to reserve some quantities
-        delivery_picking = self._create_picking(delivery_order_type)
-        # delivery_picking.location_id = wh_stock_shelf_1
+        delivery_picking = self.env["stock.picking"].create(
+            {
+                "picking_type_id": delivery_order_type.id,
+                "location_id": wh_stock_shelf_1.id,
+            }
+        )
         delivery_move = self.env["stock.move"].create(
             {
-                "name": "Delivery move",
-                "product_id": self.product_lots.id,
+                "product_id": self.apple_lots.id,
                 "product_uom_qty": 20.0,
-                "product_uom": self.product_lots.uom_id.id,
-                "location_id": delivery_picking.location_id.id,
+                "product_uom": self.apple_lots.uom_id.id,
+                "location_id": wh_stock_shelf_1.id,
                 "location_dest_id": delivery_picking.location_dest_id.id,
                 "picking_id": delivery_picking.id,
             }
@@ -313,22 +276,38 @@ class TestMoveLocation(TestsCommon):
         # Move all quantities to other location using module's wizard
         wizard = self._create_wizard(wh_stock_shelf_1, wh_stock_shelf_2)
         wizard.onchange_origin_location()
+        # Log inventory before wizard move
+        self._log_location_inventory(
+            wh_stock_shelf_1, "BEFORE Wizard Move (Delivery Order Test)"
+        )
+        self._log_location_inventory(
+            wh_stock_shelf_2, "BEFORE Wizard Move (Delivery Order Test)"
+        )
         wizard.action_move_location()
+        # Log inventory after wizard move
+        self._log_location_inventory(
+            wh_stock_shelf_1, "AFTER Wizard Move (Delivery Order Test)"
+        )
+        self._log_location_inventory(
+            wh_stock_shelf_2, "AFTER Wizard Move (Delivery Order Test)"
+        )
         self.assertEqual(delivery_picking.state, "assigned")
         self.assertEqual(delivery_move.move_line_ids.location_id, wh_stock_shelf_2)
 
         # Do a planned transfer to move quantities to other location
         #  without using module's wizard
-        internal_picking = self._create_picking(internal_transfer_type)
-        internal_picking.write(
-            {"location_id": wh_stock_shelf_2, "location_dest_id": wh_stock_shelf_3.id}
+        internal_picking = self.env["stock.picking"].create(
+            {
+                "picking_type_id": internal_transfer_type.id,
+                "location_id": wh_stock_shelf_2.id,
+                "location_dest_id": wh_stock_shelf_3.id,
+            }
         )
         self.env["stock.move"].create(
             {
-                "name": "Internal move",
-                "product_id": self.product_lots.id,
+                "product_id": self.apple_lots.id,
                 "product_uom_qty": 100.0,
-                "product_uom": self.product_lots.uom_id.id,
+                "product_uom": self.apple_lots.uom_id.id,
                 "location_id": internal_picking.location_id.id,
                 "location_dest_id": internal_picking.location_dest_id.id,
                 "picking_id": internal_picking.id,

@@ -2,7 +2,7 @@
 # Copyright Iryna Vyshnevska 2020 Camptocamp
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl)
 
-from odoo import _, models
+from odoo import models
 from odoo.exceptions import UserError
 
 
@@ -13,7 +13,8 @@ class StockPicking(models.Model):
         # check source location has no children, i.e. we scanned a bin
 
         self.ensure_one()
-        self._validate_picking()
+        if self.move_ids:
+            raise UserError(self.env._("Moves lines already exists"))
         context = {
             "active_ids": self._get_movable_quants().ids,
             "active_model": "stock.quant",
@@ -35,12 +36,6 @@ class StockPicking(models.Model):
         )
         move_wizard.action_move_location()
         return True
-
-    def _validate_picking(self):
-        if self.location_id.child_ids:
-            raise UserError(_("Please choose a source end location"))
-        if self.move_ids:
-            raise UserError(_("Moves lines already exists"))
 
     def _get_movable_quants(self):
         return (

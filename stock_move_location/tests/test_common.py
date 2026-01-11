@@ -1,7 +1,8 @@
 # Copyright (C) 2011 Julius Network Solutions SARL <contact@julius.fr>
 # Copyright 2018 Camptocamp SA
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl)
-from odoo.tests import Form
+
+import logging
 
 from odoo.addons.base.tests.common import BaseCommon
 
@@ -10,119 +11,202 @@ class TestsCommon(BaseCommon):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # Disable tracking for tests as recommended in Odoo 19.0 migration guide
+        cls.env = cls.env(context=dict(cls.env.context, tracking_disable=True))
         cls.location_obj = cls.env["stock.location"]
         cls.product_obj = cls.env["product.product"]
         cls.wizard_obj = cls.env["wiz.stock.move.location"]
         cls.quant_obj = cls.env["stock.quant"]
         cls.company = cls.env.ref("base.main_company")
-        cls.partner = cls.env.ref("base.res_partner_category_0")
+        cls.partner = cls.env["res.partner"].create({"name": "Test Partner"})
 
-        cls.internal_loc_1 = cls.location_obj.create(
+        # Use all default Odoo data
+        cls.uom_unit = cls.env.ref("uom.product_uom_unit")
+
+        # Create test locations under default warehouse structure
+        cls.internal_loc_1 = cls.env["stock.location"].create(
             {
-                "name": "INT_1",
+                "name": "Test Location 1",
                 "usage": "internal",
-                "active": True,
+                "location_id": cls.env.ref("stock.stock_location_stock").id,
                 "company_id": cls.company.id,
             }
         )
-        cls.internal_loc_2 = cls.location_obj.create(
+        cls.internal_loc_2 = cls.env["stock.location"].create(
             {
-                "name": "INT_2",
+                "name": "Test Location 2",
                 "usage": "internal",
-                "active": True,
+                "location_id": cls.env.ref("stock.stock_location_stock").id,
                 "company_id": cls.company.id,
             }
         )
-        cls.internal_loc_2_shelf = cls.location_obj.create(
+        cls.internal_loc_2_shelf = cls.env["stock.location"].create(
             {
                 "name": "Shelf",
                 "usage": "internal",
-                "active": True,
-                "company_id": cls.company.id,
                 "location_id": cls.internal_loc_2.id,
+                "company_id": cls.company.id,
             }
         )
-        cls.uom_unit = cls.env.ref("uom.product_uom_unit")
-        cls.product_no_lots = cls.product_obj.create(
+
+        # Create products with default category
+        cls.pineapple_no_lots = cls.product_obj.create(
             {"name": "Pineapple", "is_storable": True, "tracking": "none"}
         )
-        cls.product_lots = cls.product_obj.create(
+        cls.apple_lots = cls.product_obj.create(
             {"name": "Apple", "is_storable": True, "tracking": "lot"}
         )
-        cls.product_package = cls.product_obj.create(
+        cls.orange_package = cls.product_obj.create(
             {"name": "Orange", "is_storable": True, "tracking": "lot"}
         )
+
+        # Create lots
         cls.lot1 = cls.env["stock.lot"].create(
             {
                 "name": "lot1",
-                "product_id": cls.product_lots.id,
+                "product_id": cls.apple_lots.id,
                 "company_id": cls.company.id,
             }
         )
         cls.lot2 = cls.env["stock.lot"].create(
             {
                 "name": "lot2",
-                "product_id": cls.product_lots.id,
+                "product_id": cls.apple_lots.id,
                 "company_id": cls.company.id,
             }
         )
         cls.lot3 = cls.env["stock.lot"].create(
             {
                 "name": "lot3",
-                "product_id": cls.product_lots.id,
+                "product_id": cls.apple_lots.id,
                 "company_id": cls.company.id,
             }
-        )
-        cls.product_package = cls.product_obj.create(
-            {"name": "Orange", "is_storable": True, "tracking": "lot"}
         )
         cls.lot4 = cls.env["stock.lot"].create(
             {
                 "name": "lot4",
-                "product_id": cls.product_package.id,
+                "product_id": cls.orange_package.id,
                 "company_id": cls.company.id,
             }
         )
         cls.lot5 = cls.env["stock.lot"].create(
             {
                 "name": "lot5",
-                "product_id": cls.product_package.id,
+                "product_id": cls.orange_package.id,
                 "company_id": cls.company.id,
             }
         )
-        cls.package = cls.env["stock.quant.package"].create({})
-        cls.package1 = cls.env["stock.quant.package"].create({})
 
-        cls.package2 = cls.env["stock.quant.package"].create({})
+        # Create packages
+        cls.package = cls.env["stock.package"].create({})
+        cls.package1 = cls.env["stock.package"].create({})
+        cls.package2 = cls.env["stock.package"].create({})
+
+    def _log_location_inventory(self, location, message_prefix=""):
+        """Helper to log inventory quantities in a location."""
+        _logger = logging.getLogger(__name__)
+        _logger.info(f"=== {message_prefix} Location: {location.name} ===")
+
+        quants = self.env["stock.quant"].search([("location_id", "=", location.id)])
+        if quants:
+            for quant in quants:
+                lot_info = f"Lot: {quant.lot_id.name}" if quant.lot_id else "No lot"
+                package_info = (
+                    f"Package: {quant.package_id.name}"
+                    if quant.package_id
+                    else "No package"
+                )
+                owner_info = (
+                    f"Owner: {quant.owner_id.name}" if quant.owner_id else "No owner"
+                )
+                _logger.info(
+                    f"  - {quant.product_id.display_name}: "
+                    f"On-hand: {quant.quantity}, Available: {quant.available_quantity} "
+                    f"({lot_info}, {package_info}, {owner_info})"
+                )
+        else:
+            _logger.info("Location is empty")
+        _logger.info("=" * 40)
+
+    def _assert_all_stock_moved(self, from_location, to_location):
+        """Helper to assert all test stock moved from one location to another."""
+        # Check all products moved from source location
+        self.check_product_amount(self.pineapple_no_lots, from_location, 0)
+        self.check_product_amount(self.apple_lots, from_location, 0, self.lot1)
+        self.check_product_amount(self.apple_lots, from_location, 0, self.lot2)
+        self.check_product_amount(self.apple_lots, from_location, 0, self.lot3)
+        self.check_product_amount(
+            self.orange_package, from_location, 0, self.lot4, self.package
+        )
+        self.check_product_amount(
+            self.orange_package, from_location, 0, self.lot4, self.package1
+        )
+        self.check_product_amount(
+            self.orange_package,
+            from_location,
+            0,
+            self.lot5,
+            self.package2,
+            self.partner,
+        )
+
+        # Check all products moved to destination location
+        self.check_product_amount(self.pineapple_no_lots, to_location, 123)
+        self.check_product_amount(self.apple_lots, to_location, 1, self.lot1)
+        self.check_product_amount(self.apple_lots, to_location, 1, self.lot2)
+        self.check_product_amount(self.apple_lots, to_location, 1, self.lot3)
+        self.check_product_amount(
+            self.orange_package, to_location, 1, self.lot4, self.package
+        )
+        self.check_product_amount(
+            self.orange_package, to_location, 1, self.lot4, self.package1
+        )
+        self.check_product_amount(
+            self.orange_package,
+            to_location,
+            1,
+            self.lot5,
+            self.package2,
+            self.partner,
+        )
+
+    def _create_wizard_and_load_lines(self, origin_location, destination_location):
+        """Helper to create wizard and load lines."""
+        wizard = self._create_wizard(origin_location, destination_location)
+        wizard.onchange_origin_location()
+        return wizard
+
+    def _create_quant_without_quantity(self, product, location):
+        """Helper to create a quant without available quantity (for testing)."""
+        self.quant_obj.create(
+            {
+                "product_id": product.id,
+                "location_id": location.id,
+            }
+        )
 
     @classmethod
     def setup_product_amounts(cls):
-        cls.set_product_amount(cls.product_no_lots, cls.internal_loc_1, 123)
+        cls.set_product_amount(cls.pineapple_no_lots, cls.internal_loc_1, 123)
+        cls.set_product_amount(cls.apple_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot1)
+        cls.set_product_amount(cls.apple_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot2)
+        cls.set_product_amount(cls.apple_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot3)
         cls.set_product_amount(
-            cls.product_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot1
-        )
-        cls.set_product_amount(
-            cls.product_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot2
-        )
-        cls.set_product_amount(
-            cls.product_lots, cls.internal_loc_1, 1.0, lot_id=cls.lot3
-        )
-        cls.set_product_amount(
-            cls.product_package,
+            cls.orange_package,
             cls.internal_loc_1,
             1.0,
             lot_id=cls.lot4,
             package_id=cls.package,
         )
         cls.set_product_amount(
-            cls.product_package,
+            cls.orange_package,
             cls.internal_loc_1,
             1.0,
             lot_id=cls.lot4,
             package_id=cls.package1,
         )
         cls.set_product_amount(
-            cls.product_package,
+            cls.orange_package,
             cls.internal_loc_1,
             1.0,
             lot_id=cls.lot5,
@@ -168,11 +252,6 @@ class TestsCommon(BaseCommon):
                 "exclude_reserved_qty": exclude_reserved_qty,
             }
         )
-
-    def _create_picking(self, picking_type):
-        with Form(self.env["stock.picking"]) as picking_form:
-            picking_form.picking_type_id = picking_type
-        return picking_form.save()
 
     def _create_putaway_for_product(self, product, loc_in, loc_out):
         putaway = self.env["stock.putaway.rule"].create(

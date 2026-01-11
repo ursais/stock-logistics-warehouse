@@ -2,14 +2,15 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 
-from odoo.addons.base.tests.common import BaseCommon
+from .test_common import TestsCommon
 
 
-class TestFillwithStock(BaseCommon):
+class TestFillwithStock(TestsCommon):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
 
+        # Use default Odoo locations
         cls.stock_location = cls.env.ref("stock.stock_location_stock")
         cls.pack_location = cls.env.ref("stock.location_pack_zone")
 
