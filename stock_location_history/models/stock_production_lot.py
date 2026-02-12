@@ -17,7 +17,6 @@ class StockProductionLot(models.Model):
         comodel_name="stock.production.ticket",
         inverse_name="lot_id",
         string="Ticket Lines",
-        compute="_compute_ticket_move_ids",
         readonly=True,
         help="Lines of tickets and stock moves where this lot was received.",
     )
@@ -110,15 +109,6 @@ class StockProductionLot(models.Model):
             else:
                 rec = LotLine.create(vals)
                 existing_map[key] = rec
-
-    def _compute_ticket_move_ids(self):
-        self._sync_ticket_moves()
-        Ticket = self.env["stock.production.ticket"].sudo()
-        for lot in self:
-            lot.ticket_move_ids = Ticket.search(
-                [("lot_id", "=", lot.id)],
-                order="date desc, id desc",
-            )
 
     def _sync_ticket_moves(self):
         lots = self.filtered(lambda l: l.id)
