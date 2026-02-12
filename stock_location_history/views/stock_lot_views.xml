@@ -29,25 +29,24 @@
                 </group>
 
                 <!-- Quality Data Section -->
-                <!--
                 <group string="Datos de Calidad" invisible="not is_macrolot">
                     <group>
-                        <field name="peso_especifico" string="P.E. (g/l)"/>
-                        <field name="humedad" string="Humedad %"/>
-                        <field name="temperatura" string="Temp °C"/>
-                        <field name="grano_danado" string="Dañado %"/>
+                        <field name="peso_especifico" string="P.E. (g/l)" readonly="1" />
+                        <field name="humedad" string="Humedad %" readonly="1" />
+                        <field name="temperatura" string="Temp °C" readonly="1" />
+                        <field name="grano_danado" string="Dañado %" readonly="1" />
                     </group>
                     <group>
-                        <field name="pct_finos" string="Finos %"/>
-                        <field name="pct_quebrados" string="Quebrados %"/>
-                        <field name="suma_impurezas" string="Suma Impurezas (F+Q) %" readonly="1"/>
-                        <field name="analista"/>
+                        <field name="pct_finos" string="Finos %" readonly="1" />
+                        <field name="pct_quebrados" string="Quebrados %" readonly="1" />
+                        <field name="suma_impurezas" string="Impurezas (F+Q) %" readonly="1" />
+                        <field name="analista" />
                     </group>
                     <group colspan="2">
-                        <field name="proveedor_id"/>
-                        <field name="quality_notes" placeholder="Observaciones del check de calidad..."/>
+                        <field name="proveedor_id" />
+                        <field name="quality_notes" placeholder="Observaciones del check de calidad..." />
                     </group>
-                </group>-->
+                </group>
 
                 <!-- Ticket/Entry Data -->
                 <group string="Entradas (Tickets)">
@@ -111,12 +110,12 @@
                 <field name="final_mix" string="Mezcla Fin" optional="hide" />
                 <field name="final_mix_date" string="Fecha MF" optional="hide" />
                 <field name="kg_consumed_mf" string="Consumo última entrada" optional="show" />
-                <!--<field name="peso_especifico" string="P.E. g/l" optional="show" />-->
-                <!--<field name="humedad" string="Humedad %" optional="show" />-->
-                <!--<field name="temperatura" string="Temp °C" optional="hide" />-->
-                <!--<field name="pct_finos" string="% Finos" optional="hide" />-->
+                <field name="peso_especifico" string="P.E. g/l" optional="hide" />
+                <field name="humedad" string="Humedad %" optional="hide" />
+                <field name="temperatura" string="Temp °C" optional="hide" />
+                <field name="pct_finos" string="% Finos" optional="hide" />
                 <field name="pct_quebrados" string="% Quebr" optional="hide" />
-                <!--<field name="suma_impurezas" string="Impurezas %" optional="show" />-->
+                <field name="suma_impurezas" string="Impurezas %" optional="hide" />
                 <field name="grano_danado" string="Dañado %" optional="hide" />
                 <field name="analista" optional="hide" />
             </xpath>
