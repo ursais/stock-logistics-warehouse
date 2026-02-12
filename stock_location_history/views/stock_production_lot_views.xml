@@ -32,6 +32,7 @@
                             <field name="temperatura"/>
                             <field name="pct_finos"/>
                             <field name="pct_quebrados"/>
+                            <field name="grano_danado"/>
                             <field name="impurezas"/>
                             <field name="date"/>
                         </list>

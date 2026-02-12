@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from odoo import api, fields, models
 
 
@@ -57,7 +56,11 @@ class StockProductionLot(models.Model):
                 continue
 
             # Safety: ensure the raw material matches the lot product, if present.
-            if lot.product_id and bl.product_id and bl.product_id.id != lot.product_id.id:
+            if (
+                lot.product_id
+                and bl.product_id
+                and bl.product_id.id != lot.product_id.id
+            ):
                 continue
 
             batch = bl.batch_id
@@ -93,7 +96,7 @@ class StockProductionLot(models.Model):
                     rec_value = rec[k]
                     val_value = vals[k]
                     # For Many2one fields, compare IDs instead of recordsets
-                    if field.type == 'many2one':
+                    if field.type == "many2one":
                         rec_id = rec_value.id if rec_value else False
                         if rec_id != val_value:
                             changed = True
@@ -125,11 +128,13 @@ class StockProductionLot(models.Model):
         MoveLine = self.env["stock.move.line"].sudo()
         Ticket = self.env["stock.production.ticket"].sudo()
 
-        move_lines = MoveLine.search([
-            ("lot_id", "in", lots.ids),
-            ("move_id.picking_id.picking_type_id.code", "=", "incoming"),
-            ("move_id.picking_id.state", "=", "done"),
-        ])
+        move_lines = MoveLine.search(
+            [
+                ("lot_id", "in", lots.ids),
+                ("move_id.picking_id.picking_type_id.code", "=", "incoming"),
+                ("move_id.picking_id.state", "=", "done"),
+            ]
+        )
 
         # Build desired keys: (lot, purchase_order, picking)
         desired = {}
@@ -147,11 +152,15 @@ class StockProductionLot(models.Model):
             key = (ml.lot_id.id, po.id, picking.id)
 
             desired[key] = desired.get(key, 0.0) + (ml.qty_done or 0.0)
-            desired_date[key] = picking.date_done or picking.scheduled_date or picking.create_date
+            desired_date[key] = (
+                picking.date_done or picking.scheduled_date or picking.create_date
+            )
 
         # Existing lines
         existing = Ticket.search([("lot_id", "in", lots.ids)])
-        existing_map = {(t.lot_id.id, t.puchase_id.id, t.move_id.id): t for t in existing}
+        existing_map = {
+            (t.lot_id.id, t.puchase_id.id, t.move_id.id): t for t in existing
+        }
 
         desired_keys = set(desired.keys())
 
@@ -161,11 +170,13 @@ class StockProductionLot(models.Model):
                 rec.unlink()
 
         # Upsert desired lines
+        upserted_tickets = self.env["stock.production.ticket"]
         for key, qty in desired.items():
             lot_id, po_id, picking_id = key
             vals = {
                 "lot_id": lot_id,
                 "purchase_id": po_id,
+                "puchase_id": po_id,
                 "move_id": picking_id,
                 "qty_received": qty,
                 "date": desired_date.get(key),
@@ -173,8 +184,56 @@ class StockProductionLot(models.Model):
             rec = existing_map.get(key)
             if rec:
                 rec.write(vals)
+                upserted_tickets |= rec
             else:
-                Ticket.create(vals)
+                upserted_tickets |= Ticket.create(vals)
+
+        self._sync_quality_from_checks(upserted_tickets)
+
+    def _sync_quality_from_checks(self, tickets):
+        """Pull MP quality data from quality.check into tickets.
+
+        Uses defensive field access so stock_location_history works with
+        or without gaqsa_quality_check_mp_pt installed.
+        """
+        if not tickets or "quality.check" not in self.env.registry:
+            return
+
+        QualityCheck = self.env["quality.check"].sudo()
+        qc_fields = QualityCheck._fields
+
+        # Build mapping: ticket field → quality.check field (only if exists)
+        mp_field_map = {}
+        for tfield, qcfield in [
+            ("peso_especifico", "peso_especifico_mp"),
+            ("humedad", "humedad_mp"),
+            ("temperatura", "temperatura_mp"),
+            ("pct_finos", "pct_finos_mp"),
+            ("pct_quebrados", "pct_quebrado_mp"),
+            ("grano_danado", "pct_grano_danado_mp"),
+        ]:
+            if qcfield in qc_fields:
+                mp_field_map[tfield] = qcfield
+
+        if not mp_field_map:
+            return
+
+        for ticket in tickets:
+            check = QualityCheck.search(
+                [
+                    "|",
+                    ("lot_line_id", "=", ticket.lot_id.id),
+                    ("lot_id", "=", ticket.lot_id.id),
+                    ("picking_id", "=", ticket.move_id.id),
+                ],
+                order="write_date desc",
+                limit=1,
+            )
+            if not check:
+                continue
+            vals = {tf: check[qf] for tf, qf in mp_field_map.items()}
+            ticket.write(vals)
+
 
 class StockProductionLotLine(models.Model):
     _name = "stock.production.lot.line"
@@ -190,17 +249,26 @@ class StockProductionLotLine(models.Model):
     ]
 
     lot_id = fields.Many2one("stock.lot", string="Lot", index=True, required=True)
-    mo_id = fields.Many2one(comodel_name="mrp.production", string="MO", readonly=True, store=True)
+    mo_id = fields.Many2one(
+        comodel_name="mrp.production", string="MO", readonly=True, store=True
+    )
     product_id = fields.Many2one("product.template", string="Product", readonly=True)
-    mrp_batch_id = fields.Many2one(comodel_name="mrp.batch.plc", string="Batch", readonly=True, index=True)
+    mrp_batch_id = fields.Many2one(
+        comodel_name="mrp.batch.plc", string="Batch", readonly=True, index=True
+    )
     num_mez = fields.Char(string="MZ Number", readonly=True)
-    #number = fields.Char(string="MZ Number", readonly=True)
-    #mix_number = fields.Char(string="Mixed Number", readonly=True)
+    # number = fields.Char(string="MZ Number", readonly=True)
+    # mix_number = fields.Char(string="Mixed Number", readonly=True)
     lote_prod = fields.Char(string="Lote Prod", readonly=True)
     batch_line = fields.Char(string="Batch Line", readonly=True)
-    weight = fields.Float(string="Weight", readonly=True, digits="Product Unit of Measure")
-    product_uom_id = fields.Many2one(comodel_name="uom.uom", string="UOM", readonly=True)
+    weight = fields.Float(
+        string="Weight", readonly=True, digits="Product Unit of Measure"
+    )
+    product_uom_id = fields.Many2one(
+        comodel_name="uom.uom", string="UOM", readonly=True
+    )
     date = fields.Datetime(string="Date", readonly=True)
+
 
 class StockProductionTicket(models.Model):
     _name = "stock.production.ticket"
@@ -208,7 +276,11 @@ class StockProductionTicket(models.Model):
     _order = "lot_id, id desc"
 
     _sql_constraints = [
-        ("uniq_lot_po_picking", "unique(lot_id, puchase_id, move_id)", "This ticket line already exists."),
+        (
+            "uniq_lot_po_picking",
+            "unique(lot_id, puchase_id, move_id)",
+            "This ticket line already exists.",
+        ),
     ]
 
     lot_id = fields.Many2one("stock.lot", string="Lot", index=True, required=True)
@@ -216,15 +288,37 @@ class StockProductionTicket(models.Model):
     puchase_id = fields.Many2one("purchase.order", string="Purchase", readonly=True)
     move_id = fields.Many2one("stock.picking", string="Move", index=True, required=True)
     qty_received = fields.Float(string="Qty Received", store=True)
-    peso_especifico = fields.Float(string="Peso Específico (g/l)", digits=(6, 2),
-                                   help="Peso específico del grano (g/l)")
-    humedad = fields.Float(string="Humedad %", digits=(5, 2), help="Porcentaje de humedad del grano")
-    temperatura = fields.Float(string="Temperatura °C", digits=(5, 2),
-                               help="Temperatura del grano al momento de recepción")
-    pct_finos = fields.Float(string="% Finos", digits=(5, 2), help="Porcentaje de finos")
-    pct_quebrados = fields.Float(string="% Quebrados", digits=(5, 2), help="Porcentaje de granos quebrados")
-    impurezas = fields.Float(string="Impurezas (F+Q) %", digits=(5, 2), compute="_compute_suma_impurezas",
-                                  store=True, help="Suma de finos y quebrados (impurezas totales)")
+    peso_especifico = fields.Float(
+        string="Peso Específico (g/l)",
+        digits=(6, 2),
+        help="Peso específico del grano (g/l)",
+    )
+    humedad = fields.Float(
+        string="Humedad %", digits=(5, 2), help="Porcentaje de humedad del grano"
+    )
+    temperatura = fields.Float(
+        string="Temperatura °C",
+        digits=(5, 2),
+        help="Temperatura del grano al momento de recepción",
+    )
+    pct_finos = fields.Float(
+        string="% Finos", digits=(5, 2), help="Porcentaje de finos"
+    )
+    pct_quebrados = fields.Float(
+        string="% Quebrados", digits=(5, 2), help="Porcentaje de granos quebrados"
+    )
+    grano_danado = fields.Float(
+        string="Grano Dañado %",
+        digits=(5, 2),
+        help="Porcentaje de grano dañado (sincronizado desde quality.check)",
+    )
+    impurezas = fields.Float(
+        string="Impurezas (F+Q) %",
+        digits=(5, 2),
+        compute="_compute_suma_impurezas",
+        store=True,
+        help="Suma de finos y quebrados (impurezas totales)",
+    )
     date = fields.Datetime(string="Date", readonly=True)
 
     # Computed fields for reports

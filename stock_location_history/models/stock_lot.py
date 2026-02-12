@@ -1,85 +1,204 @@
-from odoo import api, fields, models
 from collections import defaultdict
+
+from odoo import api, fields, models
 
 
 class StockLotMacrolot(models.Model):
     _inherit = "stock.lot"
 
-    quantity_in = fields.Float(compute="_compute_ticket_data", store=True,
-                               help="Suma de las cantidades recibidas de cada PO")
+    quantity_in = fields.Float(
+        compute="_compute_ticket_data",
+        store=True,
+        help="Suma de las cantidades recibidas de cada PO",
+    )
 
-    first_ticket = fields.Char(compute="_compute_ticket_data", store=True, help="First ticket name")
+    first_ticket = fields.Char(
+        compute="_compute_ticket_data", store=True, help="First ticket name"
+    )
 
-    date_first_ticket = fields.Date(compute="_compute_ticket_data", store=True, help="First ticket date")
+    date_first_ticket = fields.Date(
+        compute="_compute_ticket_data", store=True, help="First ticket date"
+    )
 
-    last_ticket = fields.Char(compute="_compute_ticket_data", store=True, help="Last ticket name")
+    last_ticket = fields.Char(
+        compute="_compute_ticket_data", store=True, help="Last ticket name"
+    )
 
-    date_last_ticket = fields.Date(compute="_compute_ticket_data", store=True, help="Last ticket date")
+    date_last_ticket = fields.Date(
+        compute="_compute_ticket_data", store=True, help="Last ticket date"
+    )
 
-    quantity_difference = fields.Float(compute="_compute_ticket_data", store=True,
-                                       help="Quantity on hand = quantity_in - total_consumption")
+    quantity_difference = fields.Float(
+        compute="_compute_ticket_data",
+        store=True,
+        help="Quantity on hand = quantity_in - total_consumption",
+    )
 
-    total_consumption = fields.Float(compute="_compute_total_consumption", store=True,
-                                     help="Total consumed from this lot (sum of all batch line weights)")
+    total_consumption = fields.Float(
+        compute="_compute_total_consumption",
+        store=True,
+        help="Total consumed from this lot (sum of all batch line weights)",
+    )
 
-    initial_mix = fields.Char(compute="_compute_mix_data", store=True, help="Initial mix code")
+    initial_mix = fields.Char(
+        compute="_compute_mix_data", store=True, help="Initial mix code"
+    )
 
-    initial_mix_date = fields.Date(compute="_compute_mix_data", store=True, help="First mix date")
+    initial_mix_date = fields.Date(
+        compute="_compute_mix_data", store=True, help="First mix date"
+    )
 
     final_mix = fields.Char(compute="_compute_mix_data", store=True, help="Final Mix")
 
-    final_mix_date = fields.Date(compute="_compute_mix_data", store=True, help="Last mix date")
+    final_mix_date = fields.Date(
+        compute="_compute_mix_data", store=True, help="Last mix date"
+    )
 
-    kg_consumed_mi = fields.Float(compute="_compute_mix_data", store=True, help="Kilograms consumed from the Initial Mix")
+    kg_consumed_mi = fields.Float(
+        compute="_compute_mix_data",
+        store=True,
+        help="Kilograms consumed from the Initial Mix",
+    )
 
-    kg_consumed_mf = fields.Float(compute="_compute_mix_data", store=True, help="Kilograms consumed from the Final Mix")
+    kg_consumed_mf = fields.Float(
+        compute="_compute_mix_data",
+        store=True,
+        help="Kilograms consumed from the Final Mix",
+    )
 
-    batch_line_ids = fields.One2many(comodel_name="mrp.batch.lines", inverse_name="lot_id", string="Batch Lines")
+    batch_line_ids = fields.One2many(
+        comodel_name="mrp.batch.lines", inverse_name="lot_id", string="Batch Lines"
+    )
 
-    # Quality fields - Data from quality check (Excel books)
-    location_id = fields.Many2one(comodel_name="stock.location", string="Silo/Location",
-                                  help="Current internal location where this lot is stored (assigned silo has priority).")
+    # Quality fields - computed from tickets (weighted average by qty_received)
+    location_id = fields.Many2one(
+        comodel_name="stock.location",
+        string="Silo/Location",
+        help="Current internal location where this lot is stored (assigned silo has priority).",
+    )
 
-    location_lot = fields.Char(string="Ubicación Lote", readonly=True, copy=False, index=True)
+    location_lot = fields.Char(
+        string="Ubicación Lote", readonly=True, copy=False, index=True
+    )
 
-    is_macrolot = fields.Boolean(string="Is Macrolot", default=False,
-                                 help="Mark if this lot is a macrolot for silo tracking")
+    is_macrolot = fields.Boolean(
+        string="Is Macrolot",
+        default=False,
+        help="Mark if this lot is a macrolot for silo tracking",
+    )
 
-    humedad = fields.Float(string="Humedad %", digits=(5, 2), help="Porcentaje de humedad del grano")
+    humedad = fields.Float(
+        string="Humedad %",
+        digits=(5, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
+    grano_danado = fields.Float(
+        string="Grano Dañado %",
+        digits=(5, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
+    peso_especifico = fields.Float(
+        string="Peso Específico (g/l)",
+        digits=(6, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
+    pct_finos = fields.Float(
+        string="% Finos",
+        digits=(5, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
+    pct_quebrados = fields.Float(
+        string="% Quebrados",
+        digits=(5, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
+    temperatura = fields.Float(
+        string="Temperatura °C",
+        digits=(5, 2),
+        compute="_compute_quality_from_tickets",
+        store=True,
+    )
 
-    grano_danado = fields.Float(string="Grano Dañado %", digits=(5, 2), help="Porcentaje de grano dañado")
+    quality_notes = fields.Text(
+        string="Notas de Calidad", help="Observaciones adicionales del check de calidad"
+    )
 
-    peso_especifico = fields.Float(string="Peso Específico (g/l)", digits=(6, 2), help="Peso específico del grano (g/l)")
+    assigned_location_ids = fields.One2many(
+        comodel_name="stock.location",
+        inverse_name="lot_id",
+        string="Assigned Silos",
+        readonly=True,
+    )
 
-    pct_finos = fields.Float(string="% Finos", digits=(5, 2), help="Porcentaje de finos")
+    quant_ids = fields.One2many(
+        comodel_name="stock.quant",
+        inverse_name="lot_id",
+        string="Quants",
+        readonly=True,
+    )
 
-    pct_quebrados = fields.Float(string="% Quebrados", digits=(5, 2), help="Porcentaje de granos quebrados")
-
-    quality_notes = fields.Text(string="Notas de Calidad", help="Observaciones adicionales del check de calidad")
-
-    assigned_location_ids = fields.One2many(comodel_name="stock.location", inverse_name="lot_id", string="Assigned Silos",
-                                            readonly=True)
-
-    quant_ids = fields.One2many(comodel_name="stock.quant", inverse_name="lot_id", string="Quants", readonly=True)
-
-    # Additional quality fields from Excel "datos de unidades"
-    temperatura = fields.Float(string="Temperatura °C", digits=(5, 2),
-                               help="Temperatura del grano al momento de recepción")
-
-    suma_impurezas = fields.Float(string="Suma Impurezas (F+Q) %", digits=(5, 2), compute="_compute_suma_impurezas",
-                                  store=True, help="Suma de finos y quebrados (impurezas totales)")
+    suma_impurezas = fields.Float(
+        string="Suma Impurezas (F+Q) %",
+        digits=(5, 2),
+        compute="_compute_suma_impurezas",
+        store=True,
+        help="Suma de finos y quebrados (impurezas totales)",
+    )
 
     analista = fields.Char(string="Analista", help="Nombre del analista de calidad")
 
-    proveedor_id = fields.Many2one("res.partner", string="Proveedor", help="Proveedor del grano/material")
+    proveedor_id = fields.Many2one(
+        "res.partner", string="Proveedor", help="Proveedor del grano/material"
+    )
 
-    quantity_first_ticket = fields.Float(string="Entrada primer ticket", compute="_compute_ticket_data", store=True,
-                                         help="Muestra la cantidad del primer ticket")
+    quantity_first_ticket = fields.Float(
+        string="Entrada primer ticket",
+        compute="_compute_ticket_data",
+        store=True,
+        help="Muestra la cantidad del primer ticket",
+    )
 
-    quantity_last_ticket = fields.Float(string="Entrada último ticket", compute="_compute_ticket_data", store=True,
-                                         help="Muestra la cantidad del último ticket")
+    quantity_last_ticket = fields.Float(
+        string="Entrada último ticket",
+        compute="_compute_ticket_data",
+        store=True,
+        help="Muestra la cantidad del último ticket",
+    )
 
     # Computed fields for reports
+    @api.depends(
+        "ticket_move_ids.humedad",
+        "ticket_move_ids.peso_especifico",
+        "ticket_move_ids.temperatura",
+        "ticket_move_ids.pct_finos",
+        "ticket_move_ids.pct_quebrados",
+        "ticket_move_ids.grano_danado",
+        "ticket_move_ids.qty_received",
+    )
+    def _compute_quality_from_tickets(self):
+        quality_fields = [
+            "humedad",
+            "peso_especifico",
+            "temperatura",
+            "pct_finos",
+            "pct_quebrados",
+            "grano_danado",
+        ]
+        for lot in self:
+            tickets = lot.ticket_move_ids.filtered(lambda t: t.qty_received > 0)
+            total_qty = sum(tickets.mapped("qty_received"))
+            if not total_qty:
+                for fname in quality_fields:
+                    lot[fname] = 0.0
+                continue
+            for fname in quality_fields:
+                lot[fname] = sum(t[fname] * t.qty_received for t in tickets) / total_qty
+
     @api.depends("pct_finos", "pct_quebrados")
     def _compute_suma_impurezas(self):
         for lot in self:
@@ -91,7 +210,14 @@ class StockLotMacrolot(models.Model):
         for lot in self:
             lot.total_consumption = sum(lot.batch_line_ids.mapped("weight") or [0])
 
-    @api.depends("product_qty", "total_consumption", "quantity_in", "quantity_difference", "first_ticket", "last_ticket")
+    @api.depends(
+        "product_qty",
+        "total_consumption",
+        "quantity_in",
+        "quantity_difference",
+        "first_ticket",
+        "last_ticket",
+    )
     def _compute_ticket_data(self):
         MoveLine = self.env["stock.move.line"].sudo()
 
@@ -117,10 +243,13 @@ class StockLotMacrolot(models.Model):
                 ]
             )
 
-            purchase_orders = (move_lines.mapped("move_id.picking_id.purchase_id")
-                               | move_lines.mapped("move_id.purchase_line_id.order_id")
-                               ).filtered(lambda po: po and po.state != "cancel")
-            purchase_lines = move_lines.mapped("move_id.purchase_line_id").filtered(lambda pl: pl)
+            purchase_orders = (
+                move_lines.mapped("move_id.picking_id.purchase_id")
+                | move_lines.mapped("move_id.purchase_line_id.order_id")
+            ).filtered(lambda po: po and po.state != "cancel")
+            purchase_lines = move_lines.mapped("move_id.purchase_line_id").filtered(
+                lambda pl: pl
+            )
 
             qty_by_po = {}
             for pl in purchase_lines:
@@ -140,15 +269,18 @@ class StockLotMacrolot(models.Model):
                 lot.last_ticket = last_po.name
 
                 lot.date_first_ticket = (
-                    fields.Date.to_date(first_po.date_approve) if first_po.date_approve else False
+                    fields.Date.to_date(first_po.date_approve)
+                    if first_po.date_approve
+                    else False
                 )
                 lot.date_last_ticket = (
-                    fields.Date.to_date(last_po.date_approve) if last_po.date_approve else False
+                    fields.Date.to_date(last_po.date_approve)
+                    if last_po.date_approve
+                    else False
                 )
 
                 lot.quantity_first_ticket = qty_by_po.get(first_po.id, 0.0)
                 lot.quantity_last_ticket = qty_by_po.get(last_po.id, 0.0)
-
 
             lot.quantity_in = sum(purchase_lines.mapped("qty_received") or [0.0])
             if lot.quantity_in != 0.0:
@@ -203,17 +335,19 @@ class StockLotMacrolot(models.Model):
         for lot in self:
             lot._compute_ticket_data()
             lot._compute_location_id()
-            lot.write({
-                "quantity_in": lot.quantity_in,
-                "quantity_difference": lot.quantity_difference,
-                "first_ticket": lot.first_ticket,
-                "date_first_ticket": lot.date_first_ticket,
-                "last_ticket": lot.last_ticket,
-                "date_last_ticket": lot.date_last_ticket,
-                "product_qty": lot.product_qty,
-                "quantity_first_ticket": lot.quantity_first_ticket,
-                "quantity_last_ticket": lot.quantity_last_ticket,
-            })
+            lot.write(
+                {
+                    "quantity_in": lot.quantity_in,
+                    "quantity_difference": lot.quantity_difference,
+                    "first_ticket": lot.first_ticket,
+                    "date_first_ticket": lot.date_first_ticket,
+                    "last_ticket": lot.last_ticket,
+                    "date_last_ticket": lot.date_last_ticket,
+                    "product_qty": lot.product_qty,
+                    "quantity_first_ticket": lot.quantity_first_ticket,
+                    "quantity_last_ticket": lot.quantity_last_ticket,
+                }
+            )
 
     @api.depends(
         "assigned_location_ids",
@@ -230,10 +364,13 @@ class StockLotMacrolot(models.Model):
 
         # 1) Map lot -> assigned silo (stock.location.lot_id)
         assigned_map = {}
-        assigned_locations = StockLocation.search([
-            ("lot_id", "in", self.ids),
-            ("usage", "=", "internal"),
-        ], order="id asc")
+        assigned_locations = StockLocation.search(
+            [
+                ("lot_id", "in", self.ids),
+                ("usage", "=", "internal"),
+            ],
+            order="id asc",
+        )
 
         for loc in assigned_locations:
             # si hay varias, nos quedamos con la primera por simplicidad
@@ -281,8 +418,14 @@ class StockLotMacrolot(models.Model):
             if lot.location_lot:
                 continue
             if lot.location_id:
-                full_name = lot.location_id.complete_name or lot.location_id.display_name or lot.location_id.name
-                lot.sudo().with_context(skip_location_lot_snapshot=True).write({"location_lot": full_name})
+                full_name = (
+                    lot.location_id.complete_name
+                    or lot.location_id.display_name
+                    or lot.location_id.name
+                )
+                lot.sudo().with_context(skip_location_lot_snapshot=True).write(
+                    {"location_lot": full_name}
+                )
 
     @api.model_create_multi
     def create(self, vals_list):
