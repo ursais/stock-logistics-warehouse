@@ -41,13 +41,10 @@ class VerticalLiftShuttle(models.Model):
     command_ids = fields.One2many(
         "vertical.lift.command", "shuttle_id", string="Hardware commands"
     )
-    _sql_constraints = [
-        (
-            "location_id_unique",
-            "UNIQUE(location_id)",
-            "You cannot have two shuttles using the same location.",
-        )
-    ]
+    _location_id_unique = models.Constraint(
+        "UNIQUE(location_id)",
+        "You cannot have two shuttles using the same location.",
+    )
 
     def _selection_hardware(self):
         return [("simulation", "Simulation")]

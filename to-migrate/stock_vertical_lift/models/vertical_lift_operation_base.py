@@ -119,13 +119,10 @@ class VerticalLiftOperationBase(models.AbstractModel):
     # default values to None
     Transition.__new__.__defaults__ = (None,) * len(Transition._fields)
 
-    _sql_constraints = [
-        (
-            "shuttle_id_unique",
-            "UNIQUE(shuttle_id)",
-            "One pick can be run at a time for a shuttle.",
-        )
-    ]
+    _shuttle_id_unique = models.Constraint(
+        "UNIQUE(shuttle_id)",
+        "One pick can be run at a time for a shuttle.",
+    )
 
     def _selection_states(self):
         return []
