@@ -3,7 +3,7 @@
 {
     "name": "Location Trays",
     "summary": "Organize a location as a matrix of cells",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "category": "Stock",
     "author": "Camptocamp, Odoo Community Association (OCA)",
     "license": "AGPL-3",
@@ -11,17 +11,15 @@
     "website": "https://github.com/OCA/stock-logistics-warehouse",
     "demo": ["demo/stock_location_tray_type_demo.xml", "demo/stock_location_demo.xml"],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/stock_location_views.xml",
         "views/stock_location_tray_type_views.xml",
-        "views/stock_move_line_views.xml",
-    ],
+        "views/stock_move_line_views.xml"],
     "assets": {
         "web.assets_backend": [
             "stock_location_tray/static/src/scss/stock_location_tray.scss",
             "stock_location_tray/static/src/js/backend/stock_location_tray.esm.js",
-            "stock_location_tray/static/src/js/backend/stock_location_tray.xml",
-        ],
+            "stock_location_tray/static/src/js/backend/stock_location_tray.xml"],
     },
     "installable": True,
 }

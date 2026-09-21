@@ -48,7 +48,7 @@ class ProductTemplate(models.Model):
         ]
 
     def _inverse_route_ids(self):
-        if self._context.get("skip_inverse_route_ids"):
+        if self.env.context.get("skip_inverse_route_ids"):
             return
         profiles = self.env["route.profile"].search([])
         for rec in self:

@@ -4,7 +4,7 @@
 
 {
     "name": "Stock Picking Stages",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "author": "Camptocamp, BCIM, Odoo Community Association (OCA)",
     "category": "Warehouse Management",
     "website": "https://github.com/OCA/stock-logistics-warehouse",
@@ -12,14 +12,12 @@
     "depends": ["stock"],
     "maintainers": ["imlopes"],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/stock_picking_view.xml",
-        "views/stock_picking_stage_view.xml",
-    ],
+        "views/stock_picking_stage_view.xml"],
     "assets": {
         "web.assets_backend": [
-            "stock_picking_stage/static/src/components/environment_ribbon/*",
-        ],
+            "stock_picking_stage/static/src/components/environment_ribbon/*"],
     },
     "installable": True,
 }

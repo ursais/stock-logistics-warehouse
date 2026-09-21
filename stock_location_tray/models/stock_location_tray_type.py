@@ -9,7 +9,7 @@ from odoo.addons.base_sparse_field.models.fields import Serialized
 class StockLocationTrayType(models.Model):
     _name = "stock.location.tray.type"
     _description = "Stock Location Tray Type"
-    _rec_names_search = ["name", "code"]
+    _rec_names_search = ("name", "code")
 
     name = fields.Char(required=True)
     code = fields.Char(required=True)

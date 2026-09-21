@@ -128,7 +128,7 @@
                                         <div class="o_primary">
                                             <strong class="o_kanban_record_title">
                                                 <span>
-                                                    <t t-esc="record.name.value" />
+                                                    <t t-out="record.name.value" />
                                                 </span>
                                             </strong>
                                         </div>
@@ -142,7 +142,7 @@
                                             <!-- <field name="number_of_ops"/> -->
                                             <!-- </div> -->
                                             <!-- <div class="col-8"> -->
-                                            <!-- All <t t-esc="record.mode.value"/> Operations:  -->
+                                            <!-- All <t t-out="record.mode.value"/> Operations:  -->
                                             <!-- <field name="number_of_ops_all"/> -->
                                             <!-- </div> -->
                                         </div>

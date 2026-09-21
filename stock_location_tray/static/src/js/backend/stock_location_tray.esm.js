@@ -1,11 +1,13 @@
 // Copyright 2019 Camptocamp SA
 // License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-import {Component, onMounted, onWillDestroy, useEffect, useRef} from "@odoo/owl";
+import { Component, onMounted, onWillDestroy, usePlugin } from "@odoo/owl";
 import {browser} from "@web/core/browser/browser";
 import {registry} from "@web/core/registry";
+import { useLayoutEffect, useRef } from "@web/owl2/utils";
 import {standardFieldProps} from "@web/views/fields/standard_field_props";
 import {useService} from "@web/core/utils/hooks";
+import { ActionManagerPlugin } from "@web/webclient/actions/action_plugin";
 
 const {Object, Math} = globalThis;
 
@@ -31,7 +33,7 @@ export class LocationTrayMatrixField extends Component {
     };
     setup() {
         super.setup();
-        this.action = useService("action");
+        this.action = usePlugin(ActionManagerPlugin);
         this.orm = useService("orm");
         this.canvasRef = useRef("canvas");
         this._ready = false;
@@ -45,7 +47,7 @@ export class LocationTrayMatrixField extends Component {
 
         this._resizeDebounce = this._resizeDebounce.bind(this);
 
-        useEffect(
+        useLayoutEffect(
             () => {
                 if (this._ready) {
                     this._render();

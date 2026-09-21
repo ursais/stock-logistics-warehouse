@@ -2,8 +2,8 @@
 <template>
     <t t-name="picking.Ribbon">
         <div class="ribbon ribbon-top-right">
-            <span t-att-class="classes" t-att-title="props.title">
-                <t t-esc="props.record.data[props.field_name]" />
+            <span t-att-class="this.classes" t-att-title="this.props.title">
+                <t t-out="this.props.record.data[this.props.field_name]" />
             </span>
         </div>
     </t>

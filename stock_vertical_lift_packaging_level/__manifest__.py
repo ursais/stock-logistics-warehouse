@@ -3,7 +3,7 @@
 {
     "name": "Vertical Lift Packaging level",
     "summary": "Provides integration with Vertical Lifts and packaging levels",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "category": "Stock",
     "author": "Camptocamp, Odoo Community Association (OCA)",
     "license": "AGPL-3",

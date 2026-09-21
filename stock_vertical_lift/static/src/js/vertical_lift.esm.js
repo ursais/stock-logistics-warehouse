@@ -1,8 +1,8 @@
+import { BusPlugin } from "@bus/services/bus_plugin";
 import {FormController} from "@web/views/form/form_controller";
 import {KanbanController} from "@web/views/kanban/kanban_controller";
-import {onWillUnmount} from "@odoo/owl";
+import { onWillUnmount, usePlugin } from "@odoo/owl";
 import {patch} from "@web/core/utils/patch";
-import {useService} from "@web/core/utils/hooks";
 
 patch(KanbanController.prototype, {
     async openRecord(record, mode) {
@@ -26,7 +26,7 @@ patch(KanbanController.prototype, {
 patch(FormController.prototype, {
     setup() {
         super.setup();
-        this.busService = useService("bus_service");
+        this.busService = usePlugin(BusPlugin);
         if (this.props.resModel.startsWith("vertical.lift.operation.")) {
             this.busService.addChannel("notify_vertical_lift_screen");
             this.busService.addEventListener("notification", (notifications) => {

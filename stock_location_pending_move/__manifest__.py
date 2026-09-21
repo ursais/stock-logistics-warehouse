@@ -6,7 +6,7 @@
     "summary": """
         This module allows to show pending stock moves (outgoing and incoming)
         on a stock location""",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "license": "AGPL-3",
     "author": "ACSONE SA/NV,BCIM,Camptocamp,Odoo Community Association (OCA)",
     "maintainers": ["rousseldenis", "jbaudoux"],

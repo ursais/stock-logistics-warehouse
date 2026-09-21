@@ -31,7 +31,7 @@
                 </p>
                 <field
                     name="discrepancy_quant_ids"
-                    context="{'tree_view_ref':'stock_inventory_discrepancy.stock_quant_confirm_discrepancy'}"
+                    context="{'list_view_ref':'stock_inventory_discrepancy.stock_quant_confirm_discrepancy'}"
                     options="{'no_create': True}"
                 />
                 <footer>

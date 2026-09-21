@@ -5,7 +5,7 @@
     "name": "Stock Location Fill State Qty Picked",
     "summary": "Glue module between stock_location_fill_state and "
     "stock_move_line_qty_picked",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "license": "AGPL-3",
     "author": "BCIM, ACSONE SA/NV, Odoo Community Association (OCA)",
     "website": "https://github.com/OCA/stock-logistics-warehouse",

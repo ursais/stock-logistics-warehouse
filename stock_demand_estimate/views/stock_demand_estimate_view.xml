@@ -93,12 +93,12 @@
                 <filter
                     name="expired"
                     string="Expired"
-                    domain="[('date_to', '&lt;', context_today().strftime('%Y-%m-%d'))]"
+                    domain="[('date_to', '&lt;', 'today')]"
                 />
                 <filter
                     name="not_expired"
                     string="Not Expired"
-                    domain="['|', ('date_to', '=', False), ('date_to', '&gt;', context_today().strftime('%Y-%m-%d'))]"
+                    domain="['|', ('date_to', '=', False), ('date_to', '&gt;', 'today')]"
                 />
                 <separator />
                 <group>
