@@ -1,6 +1,6 @@
 id,name,model_id,group_id/id,operation,domain
-access_stock_cycle_count_user,stock.cycle.count user,model_stock_cycle_count,stock.group_stock_user,cru,
-access_stock_cycle_count_manager,stock.cycle.count manager,model_stock_cycle_count,stock.group_stock_manager,crud,
-access_stock_cycle_count_rule_user,stock.cycle.count.rule user,model_stock_cycle_count_rule,stock.group_stock_user,r,
-access_stock_cycle_count_rule_manager,stock.cycle.count.rule manager,model_stock_cycle_count_rule,stock.group_stock_manager,crud,
-stock_cycle_count_comp_rule,Stock Cycle Count multi-company,model_stock_cycle_count,,crud,"['|',('company_id','=',False),('company_id', 'in', company_ids)]"
+access_stock_cycle_count_user,stock.cycle.count user,stock.cycle.count,stock.group_stock_user,cru,
+access_stock_cycle_count_manager,stock.cycle.count manager,stock.cycle.count,stock.group_stock_manager,crud,
+access_stock_cycle_count_rule_user,stock.cycle.count.rule user,stock.cycle.count.rule,stock.group_stock_user,r,
+access_stock_cycle_count_rule_manager,stock.cycle.count.rule manager,stock.cycle.count.rule,stock.group_stock_manager,crud,
+stock_cycle_count_comp_rule,Stock Cycle Count multi-company,stock.cycle.count,,crud,"['|',('company_id','=',False),('company_id', 'in', company_ids)]"

@@ -1,4 +1,4 @@
 id,name,model_id,group_id/id,operation,domain
-access_slot_verification_request_user,stock.slot.verification.request user,model_stock_slot_verification_request,stock.group_stock_user,cr,
-access_slot_verification_request_manager,stock.slot.verification.request manager,model_stock_slot_verification_request,stock.group_stock_manager,crud,
-stock_slot_verification_request_comp_rule,Stock Slot Verification Request multi-company,model_stock_slot_verification_request,,crud,"['|',('company_id','=',False),('company_id', 'in', company_ids)]"
+access_slot_verification_request_user,stock.slot.verification.request user,stock.slot.verification.request,stock.group_stock_user,cr,
+access_slot_verification_request_manager,stock.slot.verification.request manager,stock.slot.verification.request,stock.group_stock_manager,crud,
+stock_slot_verification_request_comp_rule,Stock Slot Verification Request multi-company,stock.slot.verification.request,,crud,"['|',('company_id','=',False),('company_id', 'in', company_ids)]"
