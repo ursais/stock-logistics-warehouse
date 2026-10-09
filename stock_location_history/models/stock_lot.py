@@ -9,11 +9,13 @@ class StockLotMacrolot(models.Model):
     quantity_in = fields.Float(
         compute="_compute_ticket_data",
         store=True,
-        help="Suma de las cantidades recibidas de cada PO",
+        help="Suma de las cantidades recibidas en los traslados de entrada de este lote",
     )
 
     first_ticket = fields.Char(
-        compute="_compute_ticket_data", store=True, help="First ticket name"
+        compute="_compute_ticket_data",
+        store=True,
+        help="Nombre del primer traslado de entrada recibido",
     )
 
     date_first_ticket = fields.Date(
@@ -21,7 +23,9 @@ class StockLotMacrolot(models.Model):
     )
 
     last_ticket = fields.Char(
-        compute="_compute_ticket_data", store=True, help="Last ticket name"
+        compute="_compute_ticket_data",
+        store=True,
+        help="Nombre del último traslado de entrada recibido",
     )
 
     date_last_ticket = fields.Date(
@@ -41,7 +45,9 @@ class StockLotMacrolot(models.Model):
     )
 
     initial_mix = fields.Char(
-        compute="_compute_mix_data", store=True, help="Initial mix code"
+        compute="_compute_mix_data",
+        store=True,
+        help="NumMez más pequeño de las mezclas que consumieron este lote",
     )
 
     initial_mix_date = fields.Date(
@@ -103,7 +109,7 @@ class StockLotMacrolot(models.Model):
         string="Peso Específico (g/l)",
         digits=(6, 2),
         compute="_compute_quality_from_tickets",
-        store=True,
+        store=True, 
     )
     pct_finos = fields.Float(
         string="% Finos",
@@ -160,14 +166,14 @@ class StockLotMacrolot(models.Model):
         string="Entrada primer ticket",
         compute="_compute_ticket_data",
         store=True,
-        help="Muestra la cantidad del primer ticket",
+        help="Cantidad del primer traslado de entrada recibido",
     )
 
     quantity_last_ticket = fields.Float(
         string="Entrada último ticket",
         compute="_compute_ticket_data",
         store=True,
-        help="Muestra la cantidad del último ticket",
+        help="Cantidad del último traslado de entrada recibido",
     )
 
     # Computed fields for reports
@@ -210,15 +216,31 @@ class StockLotMacrolot(models.Model):
         for lot in self:
             lot.total_consumption = sum(lot.batch_line_ids.mapped("weight") or [0])
 
+    @staticmethod
+    def _incoming_receipt_moment(picking):
+        """Moment the transfer was received. Falls back if date_done is empty."""
+        return picking.date_done or picking.scheduled_date or picking.create_date
+
+    @staticmethod
+    def _num_mez_sort_key(batch):
+        """Order mixes by numeric NumMez. Non-numeric values sort after."""
+        number = (batch.num_mez or "").strip()
+        if number.isdigit():
+            return (0, int(number), batch.id)
+        return (1, number, batch.id)
+
     @api.depends(
-        "product_qty",
         "total_consumption",
-        "quantity_in",
-        "quantity_difference",
-        "first_ticket",
-        "last_ticket",
+        "ticket_move_ids.qty_received",
+        "ticket_move_ids.date",
+        "ticket_move_ids.move_id",
     )
     def _compute_ticket_data(self):
+        """Summarize done incoming transfers of this lot.
+
+        First and last ticket are the IN documents, ordered by reception date.
+        Entrada total is the sum of the quantities received on this lot.
+        """
         MoveLine = self.env["stock.move.line"].sudo()
 
         for lot in self:
@@ -243,53 +265,54 @@ class StockLotMacrolot(models.Model):
                 ]
             )
 
-            purchase_orders = (
-                move_lines.mapped("move_id.picking_id.purchase_id")
-                | move_lines.mapped("move_id.purchase_line_id.order_id")
-            ).filtered(lambda po: po and po.state != "cancel")
-            purchase_lines = move_lines.mapped("move_id.purchase_line_id").filtered(
-                lambda pl: pl
-            )
-
-            qty_by_po = {}
-            for pl in purchase_lines:
-                po = pl.order_id
-                if not po:
+            qty_by_picking = {}
+            pickings = self.env["stock.picking"]
+            for move_line in move_lines:
+                picking = move_line.move_id.picking_id
+                if not picking:
                     continue
-                qty_by_po[po.id] = qty_by_po.get(po.id, 0.0) + (pl.qty_received or 0.0)
-
-            if purchase_orders:
-                purchase_orders = purchase_orders.sorted(
-                    key=lambda po: po.create_date or po.date_order
+                qty_by_picking[picking.id] = qty_by_picking.get(picking.id, 0.0) + (
+                    move_line.quantity or 0.0
                 )
-                first_po = purchase_orders[0]
-                last_po = purchase_orders[-1]
+                pickings |= picking
 
-                lot.first_ticket = first_po.name
-                lot.last_ticket = last_po.name
-
+            if pickings:
+                undated = fields.Datetime.to_datetime("1970-01-01 00:00:00")
+                ordered = pickings.sorted(
+                    key=lambda picking: (
+                        lot._incoming_receipt_moment(picking) or undated,
+                        picking.id,
+                    )
+                )
+                first_picking = ordered[0]
+                last_picking = ordered[-1]
+                lot.first_ticket = first_picking.name
+                lot.last_ticket = last_picking.name
+                first_moment = lot._incoming_receipt_moment(first_picking)
+                last_moment = lot._incoming_receipt_moment(last_picking)
                 lot.date_first_ticket = (
-                    fields.Date.to_date(first_po.date_approve)
-                    if first_po.date_approve
-                    else False
+                    fields.Date.to_date(first_moment) if first_moment else False
                 )
                 lot.date_last_ticket = (
-                    fields.Date.to_date(last_po.date_approve)
-                    if last_po.date_approve
-                    else False
+                    fields.Date.to_date(last_moment) if last_moment else False
                 )
+                lot.quantity_first_ticket = qty_by_picking.get(first_picking.id, 0.0)
+                lot.quantity_last_ticket = qty_by_picking.get(last_picking.id, 0.0)
 
-                lot.quantity_first_ticket = qty_by_po.get(first_po.id, 0.0)
-                lot.quantity_last_ticket = qty_by_po.get(last_po.id, 0.0)
-
-            lot.quantity_in = sum(purchase_lines.mapped("qty_received") or [0.0])
-            if lot.quantity_in != 0.0:
-                lot.quantity_difference = (lot.quantity_in) - (lot.total_consumption)
+            lot.quantity_in = sum(qty_by_picking.values()) if qty_by_picking else 0.0
+            if lot.quantity_in:
+                lot.quantity_difference = lot.quantity_in - (
+                    lot.total_consumption or 0.0
+                )
             else:
                 lot.quantity_difference = 0.0
-            lot.product_qty = (lot.quantity_in) - (lot.total_consumption)
+            lot.product_qty = lot.quantity_in - (lot.total_consumption or 0.0)
 
-    @api.depends("batch_line_ids.batch_id")
+    @api.depends(
+        "batch_line_ids.batch_id.num_mez",
+        "batch_line_ids.batch_id.date_start",
+        "batch_line_ids.weight",
+    )
     def _compute_mix_data(self):
         for lot in self:
             lines = lot.batch_line_ids
@@ -303,37 +326,55 @@ class StockLotMacrolot(models.Model):
                 continue
 
             batches = lines.mapped("batch_id")
-            batches = batches.sorted(key=lambda b: b.date_start or b.create_date)
+            if not batches:
+                lot.initial_mix = False
+                lot.final_mix = False
+                lot.initial_mix_date = False
+                lot.final_mix_date = False
+                lot.kg_consumed_mi = 0.0
+                lot.kg_consumed_mf = 0.0
+                continue
 
-            first = batches[0]
-            last = batches[-1]
+            initial = min(batches, key=lot._num_mez_sort_key)
+            same_number = batches.filtered(
+                lambda batch, number=initial.num_mez: batch.num_mez == number
+            )
+            initial_for_date = same_number.sorted(
+                key=lambda batch: batch.date_start or batch.create_date
+            )[0]
+            final = batches.sorted(key=lambda batch: batch.date_start or batch.create_date)[
+                -1
+            ]
 
-            lot.initial_mix = first.num_mez
-            lot.final_mix = last.num_mez
-            lot.initial_mix_date = first.date_start or first.create_date
-            lot.final_mix_date = last.date_start or last.create_date
+            lot.initial_mix = initial.num_mez
+            lot.final_mix = final.num_mez
+            initial_moment = initial_for_date.date_start or initial_for_date.create_date
+            final_moment = final.date_start or final.create_date
+            lot.initial_mix_date = (
+                fields.Date.to_date(initial_moment) if initial_moment else False
+            )
+            lot.final_mix_date = (
+                fields.Date.to_date(final_moment) if final_moment else False
+            )
 
-            # Calcular kg_consumed_mi (kilogramos consumidos de la mezcla inicial)
-            first_num_mez = first.num_mez
+            initial_num = initial.num_mez
             initial_mix_lines = lines.filtered(
-                lambda line, first_num_mez=first_num_mez: (
-                    line.batch_id.num_mez == first_num_mez
+                lambda line, initial_num=initial_num: (
+                    line.batch_id.num_mez == initial_num
                 )
             )
-            lot.kg_consumed_mi = sum(initial_mix_lines.mapped("weight"))
+            lot.kg_consumed_mi = sum(initial_mix_lines.mapped("weight") or [0.0])
 
-            # Calcular kg_consumed_mf (kilogramos consumidos de la mezcla final)
-            last_num_mez = last.num_mez
+            final_num = final.num_mez
             final_mix_lines = lines.filtered(
-                lambda line, last_num_mez=last_num_mez: (
-                    line.batch_id.num_mez == last_num_mez
-                )
+                lambda line, final_num=final_num: line.batch_id.num_mez == final_num
             )
-            lot.kg_consumed_mf = sum(final_mix_lines.mapped("weight"))
+            lot.kg_consumed_mf = sum(final_mix_lines.mapped("weight") or [0.0])
 
     def action_recompute_purchase_tickets(self):
         for lot in self:
             lot._compute_ticket_data()
+            lot._compute_mix_data()
             lot._compute_location_id()
             lot.write(
                 {
@@ -346,6 +387,9 @@ class StockLotMacrolot(models.Model):
                     "product_qty": lot.product_qty,
                     "quantity_first_ticket": lot.quantity_first_ticket,
                     "quantity_last_ticket": lot.quantity_last_ticket,
+                    "initial_mix": lot.initial_mix,
+                    "initial_mix_date": lot.initial_mix_date,
+                    "kg_consumed_mi": lot.kg_consumed_mi,
                 }
             )
 

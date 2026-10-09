@@ -1,6 +1,6 @@
 {
     "name": "Stock Location History",
-    "version": "18.0.2.1.0",
+    "version": "18.0.2.1.1",
     "license": "AGPL-3",
     "website": "https://github.com/OCA/stock-logistics-warehouse",
     "author": "Open Source Integrators, Odoo Community Association (OCA)",
