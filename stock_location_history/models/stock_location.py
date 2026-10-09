@@ -1,5 +1,10 @@
+import logging
+import re
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 class StockLocation(models.Model):
@@ -12,11 +17,113 @@ class StockLocation(models.Model):
     )
     stage_id = fields.Many2one("stock.location.stage", string="Stage")
     lot_id = fields.Many2one("stock.lot")
-    product_id = fields.Many2one(related="lot_id.product_id", store=True)
+    actual_product_id = fields.Many2one(
+        "product.product", string="Product", domain=[("tracking", "=", "lot")]
+    )
     last_stage_id = fields.Many2one("stock.location.stage", string="Last stage")
     last_stage_validated = fields.Boolean(
         string="Is the last stage progress validated?"
     )
+    location_history_ids = fields.One2many(
+        "stock.location.history",
+        "location_id",
+        string="History",
+        help="History of stage changes for this location",
+    )
+
+    def _normalize_silo_name_for_plc(self, name):
+        """
+        Normalize silo name from Odoo format to IPM/PLC expected format.
+
+        IPM expects:
+        - S1-S31 (silos de stock) - NOT S01, S02
+        - BOD1-BOD2 (bodegas)
+        - D1-D20B (silos de dosificación)
+        - R1, R2
+        - A1-A3
+        - C1-C12
+
+        This function converts:
+        - S01 → S1 (remove leading zero after prefix)
+        - S10 → S10 (no change, no leading zero)
+        - D01 → D1 (remove leading zero)
+        - BOD01 → BOD1 (remove leading zero)
+        """
+        if not name:
+            return name
+
+        # Match pattern: alphabetic prefix + numeric part (optionally with suffix like "B")
+        # Examples: S01, S1, S31, BOD1, D20B, R1, A3, C12
+        match = re.match(r'^([A-Za-z]+)(0*)(\d+)([A-Za-z]*)$', name.strip())
+
+        if match:
+            prefix = match.group(1).upper()  # S, BOD, D, R, A, C
+            leading_zeros = match.group(2)    # Leading zeros to remove
+            number = match.group(3)           # The actual number
+            suffix = match.group(4).upper()   # Optional suffix like "B"
+
+            # Reconstruct without leading zeros
+            normalized = f"{prefix}{number}{suffix}"
+
+            if normalized != name:
+                _logger.info(
+                    "Normalized silo name for PLC: '%s' → '%s'",
+                    name, normalized
+                )
+
+            return normalized
+
+        # If pattern doesn't match, return original (uppercase)
+        return name.upper()
+
+    def _format_silo_name_for_lot(self, name):
+        """Format silo name for macrolot code.
+
+        Business rule:
+        - Stock silos must be 2 digits: S01, S02, ..., S31 (zero-padded).
+        - Other prefixes keep the original naming (only uppercased).
+
+        Note:
+        - PLC/IPM integration can still use `_normalize_silo_name_for_plc()` which removes leading zeros.
+        """
+        if not name:
+            return name
+
+        name = name.strip().upper()
+
+        # Match: alpha prefix + optional zeros + numeric part + optional suffix (e.g. D20B)
+        match = re.match(r"^([A-Z]+)(0*)(\d+)([A-Z]*)$", name)
+        if not match:
+            return name
+
+        prefix = match.group(1)
+        number = match.group(3)
+        suffix = match.group(4)
+
+        if prefix == "S":
+            # Always pad stock silos to 2 digits
+            return f"S{int(number):02d}{suffix}"
+
+        return name
+
+    @api.onchange("track_stage")
+    def _onchange_track_stage(self):
+        if self.track_stage and not self.stage_id:
+            # Assign default stage when enabling tracking
+            default_stage = self.env["stock.location.stage"].search(
+                [("is_default", "=", True)], limit=1
+            )
+            if default_stage:
+                self.stage_id = default_stage
+        elif not self.track_stage and self.stage_id:
+            # Prevent disabling tracking if not on default stage
+            default_stage = self.env["stock.location.stage"].search(
+                [("is_default", "=", True)], limit=1
+            )
+            if default_stage and self.stage_id != default_stage:
+                raise ValidationError(
+                    _("Cannot disable stage tracking while not on the default stage.")
+                )
 
     def open_location_history(self):
         self.ensure_one()
@@ -31,7 +138,57 @@ class StockLocation(models.Model):
 
     @api.constrains("stage_id")
     def check_stage_change(self):
+        default_stage = self.env["stock.location.stage"].search(
+            [("is_default", "=", True)], limit=1
+        )
         self.ensure_one()
+        # Check if we're trying to disable track_stage when not on default stage
+        # This runs when stage_id changes, so we check if track_stage is False
+        # but stage_id is not empty
+        if not self.track_stage and self.stage_id:
+            if default_stage and self.stage_id != default_stage:
+                raise ValidationError(
+                    _("Cannot disable stage tracking while not on the default stage.")
+                )
+
+        if not self.last_stage_id and not self.stage_id.is_default:
+            if not self.actual_product_id:
+                raise ValidationError(
+                    _("A product must be assigned before changing stages.")
+                )
+            else:
+                new_lot = self.macrolotCreation()
+                self.lot_id = new_lot
+
+        # Check if we're leaving the default stage; actual_product_id must be set
+        if self.last_stage_id and self.last_stage_id.is_default and self.stage_id:
+            # Check if we're moving away from default stage
+            if (
+                default_stage
+                and self.last_stage_id == default_stage
+                and self.stage_id != default_stage
+            ):
+                # If there's no product assigned, prevent the change
+                if not self.actual_product_id:
+                    raise ValidationError(
+                        _("A product must be assigned before changing stages.")
+                    )
+                # If there is a product assigned, create a lot and assign it
+                else:
+                    new_lot = self.macrolotCreation()
+                    self.lot_id = new_lot
+
+        # Check if we're transitioning FROM a closed stage TO a default stage
+        if (
+            self.last_stage_id
+            and self.last_stage_id.is_closed
+            and self.stage_id
+            and self.stage_id.is_default
+        ):
+            # Clean up lot_id and actual_product_id fields
+            self.lot_id = False
+            self.actual_product_id = False
+
         if self.stage_id and not any(
             g in self.env.user.groups_id for g in self.stage_id.change_group_ids
         ):
@@ -86,3 +243,168 @@ class StockLocation(models.Model):
         else:
             self.create_location_history("Validation")
             self.last_stage_validated = True
+
+    def verifyBDSource(self):
+        """Fetch batch data from external PLC and create related records."""
+        warehouse_model = self.env["stock.warehouse"]
+        try:
+            warehouses = warehouse_model.search([("dbsource_id", "!=", False)])
+        except ValueError:
+            # Field dbsource_id doesn't exist (gaqsa_mrp not installed or not loaded)
+            _logger.warning(
+                "dbsource_id field not available in stock.warehouse. "
+                "Please ensure gaqsa_mrp module is installed."
+            )
+            return
+        except Exception as e:
+            _logger.warning("Error searching warehouses with dbsource_id: %s", e)
+            return
+        if not warehouses:
+            _logger.info("No warehouses with dbsource_id configured.")
+            return
+        for warehouse in warehouses:
+            PLC_DB = warehouse.dbsource_id or False
+        return PLC_DB
+
+    def PLC_Complete(self):
+        if self.getMacroFromPLC():
+            self.updateMacroToPLC()
+        else:
+            self.pushMacroToPLC()
+
+    def updateMacroToPLC(self):
+        PLC_DB = self.verifyBDSource()
+
+        try:
+            with PLC_DB.connection_open() as conn:
+                # Normalize silo name for PLC (S01 → S1)
+                silo = self._normalize_silo_name_for_plc(self.name)
+                codmat = self.actual_product_id.default_code
+                macrolote = self.lot_id.name
+
+                query = """UPDATE Macrolotes SET Macrolote =?
+                            WHERE CodMat=? AND Silo=?"""
+
+                conn.exec_driver_sql(query, (macrolote, codmat, silo))
+                conn.commit()
+                _logger.info(
+                    "Updated macrolote in PLC: Silo=%s, CodMat=%s, Macrolote=%s",
+                    silo, codmat, macrolote
+                )
+
+        except Exception as e:
+            raise ValidationError(_(f"Error updating in MSSQL: {e}")) from e
+
+    def pushMacroToPLC(self):
+        PLC_DB = self.verifyBDSource()
+
+        try:
+            with PLC_DB.connection_open() as conn:
+                # Normalize silo name for PLC (S01 → S1)
+                silo = self._normalize_silo_name_for_plc(self.name)
+                codmat = self.actual_product_id.default_code
+                nommat = self.actual_product_id.name
+                macrolote = self.lot_id.name
+
+                query = """INSERT INTO Macrolotes (Silo, CodMat, NomMat, Macrolote)
+                                VALUES(?,?,?,?);"""
+                conn.exec_driver_sql(query, (silo, codmat, nommat, macrolote))
+                conn.commit()
+                _logger.info(
+                    "Inserted macrolote in PLC: Silo=%s, CodMat=%s, NomMat=%s, Macrolote=%s",
+                    silo, codmat, nommat, macrolote
+                )
+
+        except Exception as e:
+            raise ValidationError(_(f"Error inserting in MSSQL: {e}")) from e
+
+    def getMacroFromPLC(self):
+        PLC_DB = self.verifyBDSource()
+        codmat = self.actual_product_id.default_code
+        # Normalize silo name for PLC (S01 → S1)
+        silo = self._normalize_silo_name_for_plc(self.name)
+        try:
+            with PLC_DB.connection_open() as conn:
+                query = (
+                    "SELECT id, Silo, CodMat, NomMat, Macrolote "
+                    "FROM Macrolotes WHERE CodMat=? AND Silo=?;"
+                )
+
+                result = conn.exec_driver_sql(query, (codmat, silo))
+
+                rows = result.fetchall()
+
+                if not rows:
+                    _logger.info(
+                        "No macrolote found in PLC for Silo=%s, CodMat=%s",
+                        silo, codmat
+                    )
+                    return False
+                else:
+                    _logger.info(
+                        "Found macrolote in PLC for Silo=%s, CodMat=%s: %s rows",
+                        silo, codmat, len(rows)
+                    )
+                    return True
+        except Exception as e:
+            raise ValidationError(_(f"Error querying in MSSQL: {e}")) from e
+
+    def macrolotCreation(self):
+        """
+        Create a new macrolot with IPM/PLC compatible naming convention.
+
+        Format: <normalized_silo_name>-<5-digit_consecutive_number>
+        Examples: S1-00001, S31-00002, BOD1-00001, D20B-00001
+
+        IPM expects silo names without leading zeros:
+        - S1-S31 (NOT S01-S31)
+        - BOD1-BOD2
+        - D1-D20B
+        """
+        # Normalize silo name for PLC compatibility (S01 → S1)
+        #location_name = self._normalize_silo_name_for_plc(self.name)
+        location_name = self._format_silo_name_for_lot(self.name)
+        legacy_location_name = self._normalize_silo_name_for_plc(self.name)
+
+        name_prefixes = [p for p in {location_name, legacy_location_name} if p]
+        if len(name_prefixes) == 1:
+            domain = [("name", "ilike", f"{name_prefixes[0]}-%")]
+        else:
+            domain = [
+                "|",
+                ("name", "ilike", f"{name_prefixes[0]}-%"),
+                ("name", "ilike", f"{name_prefixes[1]}-%"),
+            ]
+
+        existing_lots = self.env["stock.lot"].search(domain)
+
+        # Count existing lots for this location (search with normalized name)
+        #existing_lots = self.env["stock.lot"].search(
+        #    [("name", "like", f"{location_name}-")]
+        #)
+
+        max_number = 0
+        for lot in existing_lots:
+            if "-" in lot.name:
+                suffix = lot.name.split("-")[-1]
+                if suffix.isdigit():
+                    num = int(suffix)
+                    if num > max_number:
+                        max_number = num
+
+        next_number = max_number + 1
+
+        lot_name = f"{location_name}-{next_number:05d}"
+        lot_vals = {
+            "name": lot_name,
+            "product_id": self.actual_product_id.id,
+            "company_id": self.env.company.id,
+            "location_id": self.id,
+        }
+        new_lot = self.env["stock.lot"].sudo().create(lot_vals)
+        _logger.info(
+            "Created macrolot: %s for location %s (normalized from %s)",
+            lot_name, location_name, self.name
+        )
+        self.with_delay().PLC_Complete()
+        return new_lot
