@@ -1,6 +1,6 @@
 [project]
 name = "odoo-addons-oca-stock-logistics-warehouse"
-version = "18.0.20251107.0"
+version = "18.0.20251215.0"
 dependencies = [
     "odoo-addon-account_move_line_stock_info==18.0.*",
     "odoo-addon-procurement_auto_create_group==18.0.*",
@@ -37,6 +37,7 @@ dependencies = [
     "odoo-addon-stock_move_reset_quantity==18.0.*",
     "odoo-addon-stock_package_type_volume==18.0.*",
     "odoo-addon-stock_packaging_calculator==18.0.*",
+    "odoo-addon-stock_picking_batch_packaging_qty==18.0.*",
     "odoo-addon-stock_picking_completion_info==18.0.*",
     "odoo-addon-stock_picking_product_assortment==18.0.*",
     "odoo-addon-stock_picking_show_linked==18.0.*",
@@ -49,14 +50,19 @@ dependencies = [
     "odoo-addon-stock_quant_cost_info==18.0.*",
     "odoo-addon-stock_quant_reservation_info==18.0.*",
     "odoo-addon-stock_quant_reservation_info_mrp==18.0.*",
+    "odoo-addon-stock_restrict_immediate_adjustment==18.0.*",
     "odoo-addon-stock_route_location_source==18.0.*",
     "odoo-addon-stock_route_mto==18.0.*",
     "odoo-addon-stock_secondary_unit==18.0.*",
     "odoo-addon-stock_storage_category_capacity_name==18.0.*",
+    "odoo-addon-stock_valuation_layer_inventory_filter==18.0.*",
     "odoo-addon-stock_vertical_lift==18.0.*",
+    "odoo-addon-stock_vertical_lift_empty_tray_check==18.0.*",
     "odoo-addon-stock_vertical_lift_packaging_level==18.0.*",
     "odoo-addon-stock_vertical_lift_qty_by_packaging==18.0.*",
     "odoo-addon-stock_vertical_lift_server_env==18.0.*",
+    "odoo-addon-stock_vertical_lift_storage_type==18.0.*",
+    "odoo-addon-stock_vlm_mgmt==18.0.*",
     "odoo-addon-stock_warehouse_calendar==18.0.*",
     "odoo-addon-stock_warehouse_out_pull==18.0.*",
     "odoo-addon-stock_warehouse_resupply_route_push==18.0.*",
