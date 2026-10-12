@@ -4,30 +4,128 @@
         <field name="name">stock.location.history.list</field>
         <field name="model">stock.location.history</field>
         <field name="arch" type="xml">
-            <list string="Location Histories">
-                <field name="location_id" />
-                <field name="product_id" />
-                <field name="lot_id" />
-                <field name="user_id" />
-                <field name="date" />
-                <field name="registry_type" />
-                <field name="previous_stage_id" />
-                <field name="new_stage_id" />
+            <list string="Movimientos de Silo" decoration-danger="is_quarantine">
+                <field name="id" string="No. Mov"/>
+                <field name="location_id" string="Silo"/>
+                <field name="product_id"/>
+                <field name="lot_id" string="Macrolote"/>
+                <field name="new_stage_id" string="Estado"/>
+                <field name="previous_stage_id" string="Estado Ant."/>
+                <field name="date"/>
+                <field name="user_id"/>
+                <field name="is_validated" widget="boolean"/>
+                <field name="is_quarantine" widget="boolean"/>
+                <field name="notes" optional="hide"/>
             </list>
         </field>
     </record>
 
+    <!-- FORM -->
+    <record id="view_stock_location_history_form" model="ir.ui.view">
+        <field name="name">stock.location.history.form</field>
+        <field name="model">stock.location.history</field>
+        <field name="arch" type="xml">
+            <form string="Movimiento de Silo">
+                <header>
+                    <button name="action_validate" string="Validar" type="object"
+                            class="btn-primary" invisible="is_validated"/>
+                    <button name="action_start_quarantine" string="Iniciar Cuarentena" type="object"
+                            class="btn-warning" invisible="is_quarantine"/>
+                    <button name="action_end_quarantine" string="Finalizar Cuarentena" type="object"
+                            class="btn-success" invisible="not is_quarantine"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box"/>
+                    <widget name="web_ribbon" title="Cuarentena" bg_color="bg-danger" invisible="not is_quarantine"/>
+                    <widget name="web_ribbon" title="Validado" bg_color="bg-success" invisible="not is_validated"/>
+                    <group>
+                        <group string="Información Principal">
+                            <field name="location_id"/>
+                            <field name="product_id"/>
+                            <field name="lot_id"/>
+                            <field name="date"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group string="Estado">
+                            <field name="previous_stage_id"/>
+                            <field name="new_stage_id"/>
+                            <field name="is_general"/>
+                            <field name="related_transfer_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Validación">
+                            <field name="is_validated"/>
+                            <field name="validated_date" invisible="not is_validated"/>
+                            <field name="validated_user_id" invisible="not is_validated"/>
+                        </group>
+                        <group string="Cuarentena">
+                            <field name="is_quarantine"/>
+                            <field name="quarantine_start_date" invisible="not is_quarantine and not quarantine_start_date"/>
+                            <field name="quarantine_start_user_id" invisible="not is_quarantine and not quarantine_start_user_id"/>
+                            <field name="quarantine_end_date" invisible="not quarantine_end_date"/>
+                            <field name="quarantine_end_user_id" invisible="not quarantine_end_user_id"/>
+                        </group>
+                    </group>
+                    <group string="Observaciones">
+                        <field name="notes" nolabel="1" colspan="2"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- SEARCH -->
+    <record id="view_stock_location_history_search" model="ir.ui.view">
+        <field name="name">stock.location.history.search</field>
+        <field name="model">stock.location.history</field>
+        <field name="arch" type="xml">
+            <search string="Buscar Movimientos">
+                <field name="location_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="user_id"/>
+                <filter string="Hoy" name="filter_today" domain="[('date', '>=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Esta Semana" name="filter_week" domain="[('date', '>=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter string="Este Mes" name="filter_month" domain="[('date', '>=', context_today().replace(day=1).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter string="Validados" name="filter_validated" domain="[('is_validated', '=', True)]"/>
+                <filter string="Pendientes" name="filter_pending" domain="[('is_validated', '=', False)]"/>
+                <separator/>
+                <filter string="En Cuarentena" name="filter_quarantine" domain="[('is_quarantine', '=', True)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Silo" name="group_location" context="{'group_by': 'location_id'}"/>
+                    <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Estado" name="group_stage" context="{'group_by': 'new_stage_id'}"/>
+                    <filter string="Fecha" name="group_date" context="{'group_by': 'date:day'}"/>
+                    <filter string="Usuario" name="group_user" context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_stock_location_history" model="ir.actions.act_window">
-        <field name="name">Locations</field>
+        <field name="name">Movimientos de Silo</field>
         <field name="res_model">stock.location.history</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_stock_location_history_search"/>
+        <field name="context">{'search_default_filter_month': 1}</field>
     </record>
 
     <menuitem
         id="menu_operation_stock_location_history"
-        name="History"
+        name="Movimientos"
         parent="stock_location_history.menu_operation_stock_location"
         action="stock_location_history.action_stock_location_history"
         sequence="20"
+    />
+
+    <!-- Menu for Report Wizard -->
+    <menuitem
+        id="menu_silo_movement_report"
+        name="Reporte Movimientos"
+        parent="stock_location_history.menu_operation_stock_location"
+        action="stock_location_history.action_silo_movement_report_wizard"
+        sequence="30"
     />
 </odoo>
