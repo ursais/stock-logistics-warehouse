@@ -27,14 +27,14 @@ class StockPicking(models.Model):
     @api.constrains("ignore_exception", "move_ids", "state")
     def stock_check_exception(self):
         pickings = self.filtered(
-            lambda s: s.state in ["waiting", "confirmed", "assigned"]
+            lambda s: s.state in ["done"]
         )
         if pickings:
             pickings._check_exception()
 
     @api.onchange("move_ids")
     def onchange_ignore_exception(self):
-        if self.state in ["waiting", "confirmed", "assigned"]:
+        if self.state in ["done"]:
             self.ignore_exception = False
 
     def action_confirm(self):
