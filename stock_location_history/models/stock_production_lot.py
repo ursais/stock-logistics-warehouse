@@ -32,7 +32,7 @@ class StockProductionLot(models.Model):
             )
 
     def _sync_consumption_move_lines(self):
-        lots = self.filtered(lambda l: l.id)
+        lots = self.filtered(lambda lot: lot.id)
         if not lots:
             return
 
@@ -45,8 +45,13 @@ class StockProductionLot(models.Model):
         # Build a lookup to avoid duplicates and to update existing lines.
         existing = LotLine.search([("lot_id", "in", lots.ids)])
         existing_map = {
-            (l.lot_id.id, l.mrp_batch_id.id, l.batch_line or "", l.product_id.id): l
-            for l in existing
+            (
+                line.lot_id.id,
+                line.mrp_batch_id.id,
+                line.batch_line or "",
+                line.product_id.id,
+            ): line
+            for line in existing
         }
 
         for bl in batch_lines:
@@ -111,7 +116,7 @@ class StockProductionLot(models.Model):
                 existing_map[key] = rec
 
     def _sync_ticket_moves(self):
-        lots = self.filtered(lambda l: l.id)
+        lots = self.filtered(lambda lot: lot.id)
         if not lots:
             return
 
@@ -149,7 +154,7 @@ class StockProductionLot(models.Model):
         # Existing lines
         existing = Ticket.search([("lot_id", "in", lots.ids)])
         existing_map = {
-            (t.lot_id.id, t.puchase_id.id, t.move_id.id): t for t in existing
+            (t.lot_id.id, t.purchase_id.id, t.move_id.id): t for t in existing
         }
 
         desired_keys = set(desired.keys())
@@ -166,7 +171,6 @@ class StockProductionLot(models.Model):
             vals = {
                 "lot_id": lot_id,
                 "purchase_id": po_id,
-                "puchase_id": po_id,
                 "move_id": picking_id,
                 "qty_received": qty,
                 "date": desired_date.get(key),
@@ -249,15 +253,13 @@ class StockProductionLotLine(models.Model):
     num_mez = fields.Char(string="MZ Number", readonly=True)
     # number = fields.Char(string="MZ Number", readonly=True)
     # mix_number = fields.Char(string="Mixed Number", readonly=True)
-    lote_prod = fields.Char(string="Lote Prod", readonly=True)
-    batch_line = fields.Char(string="Batch Line", readonly=True)
-    weight = fields.Float(
-        string="Weight", readonly=True, digits="Product Unit of Measure"
-    )
+    lote_prod = fields.Char(readonly=True)
+    batch_line = fields.Char(readonly=True)
+    weight = fields.Float(readonly=True, digits="Product Unit of Measure")
     product_uom_id = fields.Many2one(
         comodel_name="uom.uom", string="UOM", readonly=True
     )
-    date = fields.Datetime(string="Date", readonly=True)
+    date = fields.Datetime(readonly=True)
 
 
 class StockProductionTicket(models.Model):
@@ -268,16 +270,15 @@ class StockProductionTicket(models.Model):
     _sql_constraints = [
         (
             "uniq_lot_po_picking",
-            "unique(lot_id, puchase_id, move_id)",
+            "unique(lot_id, purchase_id, move_id)",
             "This ticket line already exists.",
         ),
     ]
 
     lot_id = fields.Many2one("stock.lot", string="Lot", index=True, required=True)
     purchase_id = fields.Many2one("purchase.order", string="Purchase", readonly=True)
-    puchase_id = fields.Many2one("purchase.order", string="Purchase", readonly=True)
     move_id = fields.Many2one("stock.picking", string="Move", index=True, required=True)
-    qty_received = fields.Float(string="Qty Received", store=True)
+    qty_received = fields.Float(store=True)
     peso_especifico = fields.Float(
         string="Peso Específico (g/l)",
         digits=(6, 2),
@@ -309,7 +310,7 @@ class StockProductionTicket(models.Model):
         store=True,
         help="Suma de finos y quebrados (impurezas totales)",
     )
-    date = fields.Datetime(string="Date", readonly=True)
+    date = fields.Datetime(readonly=True)
 
     # Computed fields for reports
     @api.depends("pct_finos", "pct_quebrados")

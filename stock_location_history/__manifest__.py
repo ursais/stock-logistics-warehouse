@@ -1,12 +1,15 @@
 {
     "name": "Stock Location History",
-    "version": "18.0.2.1.1",
+    "version": "18.0.2.1.2",
     "license": "AGPL-3",
     "website": "https://github.com/OCA/stock-logistics-warehouse",
     "author": "Open Source Integrators, Odoo Community Association (OCA)",
     "depends": ["stock", "mrp", "purchase_stock", "gaqsa_plc"],
     "category": "Stock",
-    "summary": "Silo management with stages, macrolots, quality data, validation, quarantine and PLC integration",
+    "summary": (
+        "Silo management with stages, macrolots, quality data, "
+        "validation, quarantine and PLC integration"
+    ),
     "data": [
         "security/ir.model.access.csv",
         "data/stock_location_stage_data.xml",
