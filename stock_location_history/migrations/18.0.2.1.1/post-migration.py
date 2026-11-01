@@ -4,11 +4,18 @@
 Entrada total and the first/last ticket now follow the incoming transfer.
 The initial mix now follows the smallest NumMez.
 """
+
 import logging
 
 from odoo import SUPERUSER_ID, api
 
 _logger = logging.getLogger(__name__)
+
+# A flush of 100 lots keeps every receipt line and mix line in the ORM
+# cache. On cgroup v2 the kernel rejects that allocation (ENOMEM) and
+# Python raises MemoryError instead of being OOM-killed. Ten lots, then
+# drop the cache, stays inside the 4 GiB worker limit.
+_BATCH_SIZE = 10
 
 _RECOMPUTE_FIELDS = (
     "quantity_in",
@@ -62,9 +69,24 @@ def migrate(cr, version):
     Lot = env["stock.lot"].sudo().with_context(skip_location_lot_snapshot=True)
     fields_to_compute = [Lot._fields[name] for name in _RECOMPUTE_FIELDS]
     ordered_ids = sorted(lot_ids)
-    for offset in range(0, len(ordered_ids), 100):
-        lots = Lot.browse(ordered_ids[offset : offset + 100])
+    total = len(ordered_ids)
+    for offset in range(0, total, _BATCH_SIZE):
+        chunk = ordered_ids[offset : offset + _BATCH_SIZE]
+        lots = Lot.browse(chunk)
         for field in fields_to_compute:
             env.add_to_compute(field, lots)
         env.flush_all()
-        lots.invalidate_recordset()
+        # invalidate_recordset() only drops the lots. The lines, pickings
+        # and batches stay cached, and a new Environment() returns this
+        # same one. Clear the whole cache before the next batch.
+        env.invalidate_all(flush=False)
+        del lots
+        # Release the PostgreSQL snapshot of this batch. The recompute is
+        # idempotent, so a retry after a crash runs the script again.
+        cr.commit()  # pylint: disable=invalid-commit
+        _logger.info(
+            "stock_location_history: recomputed lots %s-%s of %s",
+            offset + 1,
+            offset + len(chunk),
+            total,
+        )
