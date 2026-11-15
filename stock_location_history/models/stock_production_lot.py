@@ -145,16 +145,21 @@ class StockProductionLot(models.Model):
                 continue
 
             key = (ml.lot_id.id, po.id, picking.id)
-
-            desired[key] = desired.get(key, 0.0) + (ml.qty_done or 0.0)
+            # Odoo 18 stores the done quantity on quantity. qty_done is only a
+            # barcode dummy and is 0 when the line is not flagged as picked.
+            qty = ml.quantity if "quantity" in ml._fields else ml.qty_done
+            desired[key] = desired.get(key, 0.0) + (qty or 0.0)
             desired_date[key] = (
                 picking.date_done or picking.scheduled_date or picking.create_date
             )
 
-        # Existing lines
+        # Match the same key that is written below. The old lookup used the
+        # misspelled column, so an existing ticket was never found and the
+        # sync deleted it and created another one.
         existing = Ticket.search([("lot_id", "in", lots.ids)])
         existing_map = {
-            (t.lot_id.id, t.purchase_id.id, t.move_id.id): t for t in existing
+            (ticket.lot_id.id, ticket.purchase_id.id, ticket.move_id.id): ticket
+            for ticket in existing
         }
 
         desired_keys = set(desired.keys())
